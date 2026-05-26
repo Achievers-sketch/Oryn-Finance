@@ -289,7 +289,12 @@ tradeSchema.statics.getMarketPriceHistory = function(marketId, resolution = '1h'
         month: { $month: '$timestamp' },
         day: { $dayOfMonth: '$timestamp' },
         hour: { $hour: '$timestamp' },
-        minute: { $subtract: ['$minute', { $mod: ['$minute', 5] }] }
+        minute: {
+          $subtract: [
+            { $minute: '$timestamp' },
+            { $mod: [{ $minute: '$timestamp' }, 5] }
+          ]
+        }
       };
       break;
     case '15m':
@@ -298,7 +303,12 @@ tradeSchema.statics.getMarketPriceHistory = function(marketId, resolution = '1h'
         month: { $month: '$timestamp' },
         day: { $dayOfMonth: '$timestamp' },
         hour: { $hour: '$timestamp' },
-        minute: { $subtract: ['$minute', { $mod: ['$minute', 15] }] }
+        minute: {
+          $subtract: [
+            { $minute: '$timestamp' },
+            { $mod: [{ $minute: '$timestamp' }, 15] }
+          ]
+        }
       };
       break;
     case '1h':

@@ -238,6 +238,29 @@ export const marketService = {
     return response.data;
   },
 
+  // Get historical market prices and volume
+  async getMarketHistory(id: string, params?: {
+    resolution?: '5m' | '15m' | '1h' | '1d';
+    limit?: number;
+  }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+
+    const endpoint = queryParams.toString()
+      ? `${ENDPOINTS.MARKET_HISTORY(id)}?${queryParams}`
+      : ENDPOINTS.MARKET_HISTORY(id);
+
+    const response = await apiClient.get(endpoint);
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to fetch market history');
+    }
+    return response.data;
+  },
+
   // Get market trades
   async getMarketTrades(id: string): Promise<any[]> {
     const response = await apiClient.get<any[]>(ENDPOINTS.MARKET_TRADES(id));
