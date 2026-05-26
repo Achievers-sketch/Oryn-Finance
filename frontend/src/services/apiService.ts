@@ -366,6 +366,17 @@ export const tradeService = {
   // Get trade history
   async getTradeHistory(authToken: string, filters?: {
     marketId?: string;
+    tokenType?: 'yes' | 'no';
+    tradeType?: 'buy' | 'sell';
+    status?: 'all' | 'confirmed' | 'partially_filled' | 'pending' | 'failed' | 'cancelled';
+    startDate?: string;
+    endDate?: string;
+    minAmount?: number;
+    maxAmount?: number;
+    outcome?: 'won' | 'lost' | 'pending';
+    search?: string;
+    sortBy?: 'timestamp' | 'amount' | 'totalCost' | 'price';
+    sortOrder?: 'asc' | 'desc';
     page?: number;
     limit?: number;
   }): Promise<any> {
