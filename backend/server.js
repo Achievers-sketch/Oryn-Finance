@@ -43,7 +43,22 @@ class OrynBackendServer {
       cors: {
         origin: process.env.FRONTEND_URL || "http://localhost:3000",
         methods: ["GET", "POST"]
-      }
+      },
+      perMessageDeflate: {
+        threshold: 1024,
+        zlibDeflateOptions: {
+          chunkSize: 1024,
+          memLevel: 7,
+          level: 3
+        },
+        zlibInflateOptions: {
+          chunkSize: 10 * 1024
+        },
+        clientNoContextTakeover: true,
+        serverNoContextTakeover: true,
+        serverMaxWindowBits: 10
+      },
+      maxHttpBufferSize: 1e6
     });
     this.port = process.env.PORT || 5001;
   }

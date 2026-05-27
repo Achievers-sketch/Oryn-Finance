@@ -19,6 +19,16 @@ class WebSocketHandler {
     this.batchTimeouts = new Map();
     this.priceCache = new Map();
     this.heartbeatInterval = null;
+    // Delta compression: track last emitted data per market
+    this.lastEmittedData = new Map();
+    // Performance benchmarking
+    this.compressionStats = {
+      totalBytesBefore: 0,
+      totalBytesAfter: 0,
+      compressedMessages: 0,
+      deltaSavings: 0,
+      batchesSaved: 0
+    };
   }
 
   initialize(io) {
@@ -50,7 +60,7 @@ class WebSocketHandler {
       });
 
       socket.on('ping', () => {
-        socket.emit('pong', { timestamp: Date.now() });
+        socket.emit('pong', { ts: Date.now() });
       });
 
       socket.on('sync_prices', async (data) => {
@@ -64,7 +74,7 @@ class WebSocketHandler {
             }
           }
           socket.emit('prices_synced', {
-            timestamp: new Date().toISOString(),
+            ts: Date.now(),
             serverTime: Date.now(),
             prices: syncData
           });
@@ -102,7 +112,7 @@ class WebSocketHandler {
       // receives its own connection health ping rather than a broadcast
       // that carries aggregate server state to every client.
       this.io.sockets.sockets.forEach((socket) => {
-        socket.emit('heartbeat', { timestamp: Date.now() });
+        socket.emit('heartbeat', { ts: Date.now() });
       });
     }, 30000);
   }
@@ -117,7 +127,7 @@ class WebSocketHandler {
   updatePriceCache(marketId, priceData) {
     this.priceCache.set(marketId, {
       ...priceData,
-      timestamp: new Date().toISOString(),
+      ts: Date.now(),
       serverTime: Date.now()
     });
 
@@ -140,7 +150,8 @@ class WebSocketHandler {
 
       socket.emit('authenticated', {
         success: true,
-        walletAddress: socket.userData.walletAddress
+        walletAddress: socket.userData.walletAddress,
+        ts: Date.now()
       });
 
       logger.websocket('Client authenticated', {
@@ -221,12 +232,13 @@ class WebSocketHandler {
     for (const [marketId, sockets] of this.marketRooms.entries()) {
       if (sockets.has(socket.id)) {
         sockets.delete(socket.id);
-        if (sockets.size === 0) {
-          this.marketRooms.delete(marketId);
-          this.pendingUpdates.delete(marketId);
-          this.lastUpdateTime.delete(marketId);
-          this._clearBatchTimeout(marketId);
-        }
+      if (sockets.size === 0) {
+        this.marketRooms.delete(marketId);
+        this.pendingUpdates.delete(marketId);
+        this.lastUpdateTime.delete(marketId);
+        this.lastEmittedData.delete(marketId);
+        this._clearBatchTimeout(marketId);
+      }
       }
     }
 
@@ -261,13 +273,13 @@ class WebSocketHandler {
         this.pendingUpdates.set(marketId, []);
       }
       const pending = this.pendingUpdates.get(marketId);
-      const optimizedData = this.optimizePayload(updateData);
+      const compressed = this.compressPayload(updateData, null);
 
       const existingIndex = pending.findIndex(update => update.type === updateData.type);
       if (existingIndex >= 0) {
-        pending[existingIndex] = optimizedData;
+        pending[existingIndex] = compressed.data || updateData;
       } else if (pending.length < BATCH_SIZE) {
-        pending.push(optimizedData);
+        pending.push(compressed.data || updateData);
       }
 
       // Use a per-market timeout so multiple markets don't overwrite each other
@@ -285,14 +297,24 @@ class WebSocketHandler {
     const sequenceNumber = (this.lastSequence || 0) + 1;
     this.lastSequence = sequenceNumber;
 
-    const optimizedData = this.optimizePayload(updateData);
+    const compressed = this.compressPayload(updateData, marketId);
+
+    // Skip emission if delta computed no changes
+    if (compressed.delta && compressed.data === null) {
+      this.compressionStats.batchesSaved++;
+      return;
+    }
+
     const payload = {
       marketId,
-      timestamp: new Date().toISOString(),
-      sequence: sequenceNumber,
-      data: optimizedData,
-      serverTime: now
+      ts: now,
+      sq: sequenceNumber,
+      d: compressed.data,
+      st: now
     };
+
+    const rawSize = JSON.stringify({ ...payload, d: compressed.full }).length;
+    const compressedSize = JSON.stringify(payload).length;
 
     this.io.to(roomName).emit('market_update', payload);
 
@@ -300,16 +322,19 @@ class WebSocketHandler {
     this.io.to(GLOBAL_SUBSCRIBERS_ROOM).emit('global_market_update', {
       marketId,
       type: updateData.type,
-      timestamp: payload.timestamp,
-      sequence: sequenceNumber
+      ts: now,
+      sq: sequenceNumber
     });
+
+    this._recordCompressionStats(rawSize, compressedSize);
 
     logger.websocket('Market update broadcast', {
       marketId,
       roomName,
       updateType: updateData.type,
       sequence: sequenceNumber,
-      subscribersCount: this.getMarketSubscribers(marketId).length
+      subscribersCount: this.getMarketSubscribers(marketId).length,
+      savedPct: rawSize > 0 ? Math.round((1 - compressedSize / rawSize) * 100) : 0
     });
   }
 
@@ -321,6 +346,17 @@ class WebSocketHandler {
     const pending = this.pendingUpdates.get(marketId);
     if (pending.length === 0) return;
 
+    // Deduplicate: remove duplicate update objects within the batch
+    const seen = new Set();
+    const deduped = [];
+    for (let i = pending.length - 1; i >= 0; i--) {
+      const key = JSON.stringify(pending[i]);
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduped.unshift(pending[i]);
+      }
+    }
+
     const roomName = `market_${marketId}`;
     const now = Date.now();
     const sequenceNumber = (this.lastSequence || 0) + 1;
@@ -328,43 +364,107 @@ class WebSocketHandler {
 
     const batchPayload = {
       marketId,
+      ts: now,
+      sq: sequenceNumber,
+      t: 'bu',
+      d: deduped,
+      st: now
+    };
+
+    const rawSize = JSON.stringify({
+      marketId,
       timestamp: new Date().toISOString(),
       sequence: sequenceNumber,
       type: 'batch_update',
       data: pending,
       serverTime: now
-    };
+    }).length;
+    const compressedSize = JSON.stringify(batchPayload).length;
 
     this.io.to(roomName).emit('market_update', batchPayload);
 
     this.pendingUpdates.set(marketId, []);
     this.lastUpdateTime.set(marketId, now);
 
+    if (pending.length > deduped.length) {
+      this.compressionStats.batchesSaved++;
+    }
+    this._recordCompressionStats(rawSize, compressedSize);
+
     logger.websocket('Batch update flushed', {
       marketId,
       updatesCount: pending.length,
-      sequence: sequenceNumber
+      dedupedCount: deduped.length,
+      sequence: sequenceNumber,
+      savedPct: rawSize > 0 ? Math.round((1 - compressedSize / rawSize) * 100) : 0
     });
   }
 
-  optimizePayload(updateData) {
-    const optimized = {};
+  compressPayload(updateData, marketId) {
+    const stripped = {};
     for (const [key, value] of Object.entries(updateData)) {
-      if (JSON.stringify(value).length <= MAX_PAYLOAD_SIZE) {
-        optimized[key] = value;
+      if (value === null || value === undefined || value === '') continue;
+      if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) continue;
+      if (Array.isArray(value) && value.length === 0) continue;
+      // Round floating-point numbers to reduce byte representation
+      if (typeof value === 'number' && !Number.isInteger(value) && key !== 'timestamp' && key !== 'sequence') {
+        stripped[key] = Math.round(value * 1e8) / 1e8;
+      } else {
+        stripped[key] = value;
       }
     }
-    return optimized;
+
+    // Compute delta against last emitted data for this market
+    if (marketId && this.lastEmittedData.has(marketId)) {
+      const prev = this.lastEmittedData.get(marketId);
+      const delta = {};
+      let hasChanges = false;
+
+      for (const [key, value] of Object.entries(stripped)) {
+        const prevVal = prev[key];
+        if (JSON.stringify(value) !== JSON.stringify(prevVal)) {
+          delta[key] = value;
+          hasChanges = true;
+        }
+      }
+
+      if (hasChanges) {
+        this.lastEmittedData.set(marketId, { ...prev, ...delta });
+        return { compressed: true, delta: true, data: delta, full: stripped };
+      }
+      // No changes from previous emission
+      return { compressed: true, delta: true, data: null, full: stripped };
+    }
+
+    if (marketId) {
+      this.lastEmittedData.set(marketId, { ...stripped });
+    }
+    return { compressed: true, delta: false, data: stripped, full: stripped };
+  }
+
+  _recordCompressionStats(before, after) {
+    this.compressionStats.totalBytesBefore += before;
+    this.compressionStats.totalBytesAfter += after;
+    this.compressionStats.compressedMessages++;
+    this.compressionStats.deltaSavings += Math.max(0, before - after);
   }
 
   broadcastTrade(marketId, tradeData) {
     if (!this.io) return;
 
     const roomName = `market_${marketId}`;
+    const now = Date.now();
+
+    const stripped = {};
+    for (const [key, value] of Object.entries(tradeData)) {
+      if (value === null || value === undefined || value === '') continue;
+      stripped[key] = value;
+    }
+
     this.io.to(roomName).emit('new_trade', {
       marketId,
-      timestamp: new Date(),
-      ...tradeData
+      ts: now,
+      ...stripped
     });
 
     logger.websocket('Trade broadcast', {
@@ -381,10 +481,16 @@ class WebSocketHandler {
       .filter(([_, userData]) => userData.walletAddress === walletAddress.toLowerCase())
       .map(([socketId]) => socketId);
 
+    const stripped = {};
+    for (const [key, value] of Object.entries(notification)) {
+      if (value === null || value === undefined || value === '') continue;
+      stripped[key] = value;
+    }
+
     userSockets.forEach(socketId => {
       this.io.to(socketId).emit('notification', {
-        timestamp: new Date(),
-        ...notification
+        ts: Date.now(),
+        ...stripped
       });
     });
 
@@ -399,7 +505,7 @@ class WebSocketHandler {
     if (!this.io) return;
 
     this.io.emit('announcement', {
-      timestamp: new Date(),
+      ts: Date.now(),
       ...announcement
     });
 
@@ -413,7 +519,7 @@ class WebSocketHandler {
     if (!this.io) return;
 
     this.io.emit('leaderboard_update', {
-      timestamp: new Date(),
+      ts: Date.now(),
       ...leaderboardData
     });
 
@@ -434,11 +540,23 @@ class WebSocketHandler {
   }
 
   getWebSocketStats() {
+    const compressionRatio = this.compressionStats.totalBytesBefore > 0
+      ? ((1 - this.compressionStats.totalBytesAfter / this.compressionStats.totalBytesBefore) * 100).toFixed(1)
+      : 0;
+
     return {
       connectedUsers: this.connectedUsers.size,
       totalRooms: this.io?.sockets.adapter.rooms.size || 0,
       authenticatedUsers: Array.from(this.connectedUsers.values())
-        .filter(userData => userData.walletAddress).length
+        .filter(userData => userData.walletAddress).length,
+      compression: {
+        totalBytesBefore: this.compressionStats.totalBytesBefore,
+        totalBytesAfter: this.compressionStats.totalBytesAfter,
+        bytesSaved: this.compressionStats.deltaSavings,
+        messagesCompressed: this.compressionStats.compressedMessages,
+        batchesDeduped: this.compressionStats.batchesSaved,
+        compressionRatio: `${compressionRatio}%`
+      }
     };
   }
 }

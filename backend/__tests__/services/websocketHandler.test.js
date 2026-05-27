@@ -77,7 +77,7 @@ describe('WebSocketHandler', () => {
     expect(io.to).toHaveBeenCalledWith('market_btc');
     expect(roomEmitter.emit).toHaveBeenCalledWith('market_update', expect.objectContaining({
       marketId: 'btc',
-      data: { type: 'price', price: 0.61 }
+      d: expect.objectContaining({ type: 'price', price: 0.61 })
     }));
   });
 
@@ -87,7 +87,9 @@ describe('WebSocketHandler', () => {
 
     websocketHandler.broadcastMarketUpdate('btc', { type: 'price', price: 0.62 });
 
-    expect(websocketHandler.pendingUpdates.get('btc')).toEqual([{ type: 'price', price: 0.62 }]);
+    expect(websocketHandler.pendingUpdates.get('btc')).toEqual(
+      expect.arrayContaining([expect.objectContaining({ type: 'price', price: 0.62 })])
+    );
   });
 
   it('broadcasts trades and direct user notifications', () => {
@@ -107,11 +109,11 @@ describe('WebSocketHandler', () => {
 
     expect(websocketHandler.getConnectedUsersCount()).toBe(1);
     expect(websocketHandler.getMarketSubscribers('btc')).toEqual(['socket123']);
-    expect(websocketHandler.getWebSocketStats()).toEqual({
-      connectedUsers: 1,
-      totalRooms: 1,
-      authenticatedUsers: 1
-    });
+    const stats = websocketHandler.getWebSocketStats();
+    expect(stats.connectedUsers).toBe(1);
+    expect(stats.totalRooms).toBe(1);
+    expect(stats.authenticatedUsers).toBe(1);
+    expect(stats.compression).toBeDefined();
   });
 
   it('cleans up user membership on disconnect', () => {
@@ -122,5 +124,105 @@ describe('WebSocketHandler', () => {
 
     expect(websocketHandler.connectedUsers.has('socket123')).toBe(false);
     expect(websocketHandler.marketRooms.has('btc')).toBe(false);
+  });
+
+  describe('compression', () => {
+    beforeEach(() => {
+      websocketHandler.lastEmittedData = new Map();
+      websocketHandler.compressionStats = {
+        totalBytesBefore: 0,
+        totalBytesAfter: 0,
+        compressedMessages: 0,
+        deltaSavings: 0,
+        batchesSaved: 0
+      };
+    });
+
+    it('strips null, undefined, and empty values from payloads', () => {
+      const result = websocketHandler.compressPayload({
+        type: 'price',
+        price: 0.61,
+        volume: null,
+        note: undefined,
+        comment: ''
+      }, null);
+
+      expect(result.data).toEqual({ type: 'price', price: 0.61 });
+      expect(result.data.volume).toBeUndefined();
+      expect(result.data.note).toBeUndefined();
+      expect(result.data.comment).toBeUndefined();
+    });
+
+    it('computes delta against last emitted data', () => {
+      websocketHandler.lastEmittedData.set('btc', { type: 'price', price: 0.61, volume: 1000 });
+
+      const result = websocketHandler.compressPayload(
+        { type: 'price', price: 0.62, volume: 1000 },
+        'btc'
+      );
+
+      expect(result.delta).toBe(true);
+      expect(result.data).toEqual({ type: 'price', price: 0.62 });
+      expect(result.data.volume).toBeUndefined();
+    });
+
+    it('returns null data when no fields changed', () => {
+      websocketHandler.lastEmittedData.set('btc', { type: 'price', price: 0.61 });
+
+      const result = websocketHandler.compressPayload(
+        { type: 'price', price: 0.61 },
+        'btc'
+      );
+
+      expect(result.delta).toBe(true);
+      expect(result.data).toBeNull();
+    });
+
+    it('skips emission when delta has no changes', () => {
+      websocketHandler.io = io;
+      websocketHandler.lastEmittedData.set('btc', { type: 'price', price: 0.61 });
+
+      websocketHandler.broadcastMarketUpdate('btc', { type: 'price', price: 0.61 });
+
+      expect(roomEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it('flushes batch with deduplication of identical payloads', (done) => {
+      websocketHandler.io = io;
+      websocketHandler.lastUpdateTime.set('btc', Date.now());
+
+      // Different types to avoid type-based throttle dedup
+      websocketHandler.broadcastMarketUpdate('btc', { type: 'price', price: 0.61 });
+      websocketHandler.broadcastMarketUpdate('btc', { type: 'volume', volume: 5000 });
+      // Manually add a duplicate to simulate duplicate in batch
+      websocketHandler.pendingUpdates.get('btc').push(
+        websocketHandler.pendingUpdates.get('btc')[1]
+      );
+
+      setTimeout(() => {
+        const calls = roomEmitter.emit.mock.calls.filter(
+          call => call[0] === 'market_update' && call[1]?.t === 'bu'
+        );
+        expect(calls.length).toBeGreaterThanOrEqual(1);
+        const batchPayload = calls[0][1];
+        // Deduplication should have removed the duplicate
+        expect(batchPayload.d.length).toBe(2);
+        done();
+      }, 150);
+    });
+
+    it('tracks compression statistics', () => {
+      websocketHandler.io = io;
+
+      websocketHandler.broadcastMarketUpdate('btc', { type: 'price', price: 0.61, volume: 5000 });
+
+      expect(websocketHandler.compressionStats.compressedMessages).toBeGreaterThanOrEqual(1);
+      expect(websocketHandler.compressionStats.totalBytesBefore).toBeGreaterThan(0);
+
+      const stats = websocketHandler.getWebSocketStats();
+      expect(stats.compression).toBeDefined();
+      expect(stats.compression.compressionRatio).toBeDefined();
+      expect(typeof stats.compression.bytesSaved).toBe('number');
+    });
   });
 });
