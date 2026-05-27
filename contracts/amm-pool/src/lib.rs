@@ -222,8 +222,17 @@ impl AmmPoolContract {
     // --------------------------------------------------
 
     fn calculate_swap(env: &Env, token: &TokenType, amount: i128) -> Result<SwapResult, Error> {
+        if amount <= 0 {
+            return Err(OrynError::InvalidTradeAmount.into());
+        }
+
         let yes = Self::get_yes_reserve(env);
         let no = Self::get_no_reserve(env);
+
+        if yes == 0 || no == 0 {
+            return Err(OrynError::NoLiquidity.into());
+        }
+
         let fee_rate = Self::get_fee_rate(env) as i128;
 
         let fee = amount * fee_rate / 10_000;
@@ -239,6 +248,10 @@ impl AmmPoolContract {
         let new_rout = k / new_rin;
 
         let out = rout - new_rout;
+        if out <= 0 {
+            return Err(OrynError::InsufficientLiquidity.into());
+        }
+
         let price_impact = if rin > 0 && new_rin > 0 {
             ((rout * PRECISION / rin) - (new_rout * PRECISION / new_rin)).max(0)
         } else {
@@ -481,6 +494,31 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn test_swap_without_liquidity_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, _) = setup(&env, 30);
+
+        let trader = Address::generate(&env);
+        client.swap(&trader, &TokenType::Yes, &10_000_000, &0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_zero_amount_swap_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, _) = setup(&env, 30);
+
+        let provider = Address::generate(&env);
+        client.add_liquidity(&provider, &2_000_000_000);
+
+        let trader = Address::generate(&env);
+        client.swap(&trader, &TokenType::Yes, &0, &0);
+    }
+
+    #[test]
     fn test_swap_no_for_yes_returns_positive_output() {
         let env = Env::default();
         env.mock_all_auths();
@@ -528,6 +566,20 @@ mod tests {
         let trader = Address::generate(&env);
         // With 10M in and ~9.87M expected out, demanding 15M should fail
         client.swap(&trader, &TokenType::Yes, &10_000_000, &15_000_000);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_large_swap_against_shallow_pool_fails_on_slippage() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, _) = setup(&env, 30);
+
+        let provider = Address::generate(&env);
+        client.add_liquidity(&provider, &100_000);
+
+        let trader = Address::generate(&env);
+        client.swap(&trader, &TokenType::Yes, &50_000, &0);
     }
 
     #[test]

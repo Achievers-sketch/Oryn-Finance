@@ -238,6 +238,29 @@ export const marketService = {
     return response.data;
   },
 
+  // Get historical market prices and volume
+  async getMarketHistory(id: string, params?: {
+    resolution?: '5m' | '15m' | '1h' | '1d';
+    limit?: number;
+  }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+
+    const endpoint = queryParams.toString()
+      ? `${ENDPOINTS.MARKET_HISTORY(id)}?${queryParams}`
+      : ENDPOINTS.MARKET_HISTORY(id);
+
+    const response = await apiClient.get(endpoint);
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to fetch market history');
+    }
+    return response.data;
+  },
+
   // Get market trades
   async getMarketTrades(id: string): Promise<any[]> {
     const response = await apiClient.get<any[]>(ENDPOINTS.MARKET_TRADES(id));
@@ -343,6 +366,17 @@ export const tradeService = {
   // Get trade history
   async getTradeHistory(authToken: string, filters?: {
     marketId?: string;
+    tokenType?: 'yes' | 'no';
+    tradeType?: 'buy' | 'sell';
+    status?: 'all' | 'confirmed' | 'partially_filled' | 'pending' | 'failed' | 'cancelled';
+    startDate?: string;
+    endDate?: string;
+    minAmount?: number;
+    maxAmount?: number;
+    outcome?: 'won' | 'lost' | 'pending';
+    search?: string;
+    sortBy?: 'timestamp' | 'amount' | 'totalCost' | 'price';
+    sortOrder?: 'asc' | 'desc';
     page?: number;
     limit?: number;
   }): Promise<any> {

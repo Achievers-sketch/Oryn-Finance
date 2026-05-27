@@ -315,7 +315,7 @@ const queryValidations = {
 
     query('status')
       .optional()
-      .isIn(['confirmed', 'pending', 'failed', 'cancelled'])
+      .isIn(['all', 'confirmed', 'partially_filled', 'pending', 'failed', 'cancelled'])
       .withMessage('Invalid status value'),
 
     query('startDate')

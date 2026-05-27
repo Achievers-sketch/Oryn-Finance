@@ -37,6 +37,7 @@ export const ENDPOINTS = {
   // Markets
   MARKETS: '/markets',
   MARKET_DETAIL: (id: string) => `/markets/${id}`,
+  MARKET_HISTORY: (id: string) => `/markets/${id}/history`,
   MARKET_TRADES: (id: string) => `/markets/${id}/trades`,
   
   // Trades
