@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, Users, Calendar, Clock, ExternalLink, Info, Loader2, AlertTriangle, WifiOff, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Users, Calendar, Clock, ExternalLink, Info, Loader2, AlertTriangle, WifiOff, CheckCircle2, XCircle, ArrowRight, Shield } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,7 @@ import { OddsChart } from '@/components/OddsChart';
 import { useMarketUpdates } from '@/contexts/WebSocketContext';
 import { useOffline } from '@/hooks/useOffline';
 import { useOptimisticTrade, type OptimisticPhase, type OptimisticTrade } from '@/hooks/useOptimisticTrade';
+import { ConfidenceMeter } from '@/components/markets/ConfidenceMeter';
 
 function formatVolume(volume: number): string {
   if (volume >= 1000000) return `$${(volume / 1000000).toFixed(2)}M`;
@@ -134,6 +135,8 @@ export default function MarketDetail() {
 
   const [liveYesPrice, setLiveYesPrice] = useState(currentMarket.yesPrice);
   const [liveNoPrice, setLiveNoPrice] = useState(currentMarket.noPrice);
+  const [liveLiquidity, setLiveLiquidity] = useState(currentMarket.liquidity);
+  const [liveVolume, setLiveVolume] = useState(currentMarket.volume);
 
   useEffect(() => {
     if (!marketData) return;
@@ -141,6 +144,18 @@ export default function MarketDetail() {
     if (rawYes != null) {
       setLiveYesPrice(rawYes);
       setLiveNoPrice(1 - rawYes);
+    }
+    if (marketData.liquidity != null) {
+      setLiveLiquidity(marketData.liquidity);
+    } else if (marketData.initialLiquidity != null) {
+      setLiveLiquidity(marketData.initialLiquidity);
+    }
+    if (marketData.volume != null) {
+      setLiveVolume(marketData.volume);
+    } else if (marketData.totalVolume != null) {
+      setLiveVolume(marketData.totalVolume);
+    } else if (marketData.volume24h != null) {
+      setLiveVolume(marketData.volume24h);
     }
   }, [marketData]);
 
@@ -678,8 +693,12 @@ export default function MarketDetail() {
                     <TrendingUp className="w-4 h-4" />
                     Total Volume
                   </span>
-                  <span className="font-medium">{formatVolume(currentMarket.volume)}</span>
+                  <span className="font-medium">{formatVolume(liveVolume)}</span>
                 </div>
+                <ConfidenceMeter
+                  liquidity={liveLiquidity}
+                  volume={liveVolume}
+                />
                 <div className="flex justify-between">
                   <span className="text-muted-foreground flex items-center gap-2">
                     <Users className="w-4 h-4" />
