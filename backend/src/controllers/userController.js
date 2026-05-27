@@ -1,6 +1,34 @@
 const { User, Trade, Position, Market } = require('../models');
 const logger = require('../config/logger');
 const { NotFoundError, ValidationError } = require('../middleware/errorHandler');
+const sorobanService = require('../services/sorobanService');
+
+const VERIFIED_CREATOR_THRESHOLD = 600;
+
+function normalizeContractReputation(contractResponse) {
+  const result = contractResponse?.result;
+  if (!result) return null;
+
+  if (typeof result === 'number') {
+    return { score: result, updatedAt: null };
+  }
+
+  const rawScore = Number(result.score ?? result.reputationScore ?? 0);
+  const rawUpdatedAt = Number(result.updated_at ?? result.updatedAt ?? 0);
+
+  return {
+    score: Number.isFinite(rawScore) ? rawScore : 0,
+    updatedAt: rawUpdatedAt > 0 ? new Date(rawUpdatedAt * 1000).toISOString() : null
+  };
+}
+
+function buildTrustLevel(score) {
+  if (score >= 800) return 'diamond';
+  if (score >= 600) return 'verified';
+  if (score >= 400) return 'trusted';
+  if (score >= 200) return 'emerging';
+  return 'new';
+}
 
 class UserController {
   // Get current user profile
@@ -236,6 +264,51 @@ class UserController {
       });
     } catch (error) {
       logger.error('Get user by address failed:', error);
+      throw error;
+    }
+  }
+
+  // Get public creator reputation for market credibility displays
+  static async getPublicUserReputation(req, res) {
+    try {
+      const { walletAddress } = req.params;
+      const user = await User.findOne({ walletAddress }).lean();
+
+      let contractReputation = null;
+      try {
+        contractReputation = normalizeContractReputation(
+          await sorobanService.getUserReputation(walletAddress)
+        );
+      } catch (error) {
+        logger.warn('Falling back to indexed reputation data', {
+          walletAddress,
+          error: error.message
+        });
+      }
+
+      const score = Math.max(0, Math.min(1000, Math.round(
+        contractReputation?.score ?? user?.reputationScore ?? 0
+      )));
+      const verified = Boolean(user?.profile?.isVerified) || score >= VERIFIED_CREATOR_THRESHOLD;
+
+      res.json({
+        success: true,
+        data: {
+          walletAddress,
+          trustScore: score,
+          verified,
+          trustLevel: buildTrustLevel(score),
+          source: contractReputation ? 'reputation_contract' : 'indexed_profile',
+          updatedAt: contractReputation?.updatedAt ?? user?.updatedAt ?? null,
+          statistics: {
+            marketsCreated: user?.statistics?.marketsCreated || 0,
+            winRate: user?.statistics?.winRate || 0,
+            totalVolume: user?.statistics?.totalVolume || 0
+          }
+        }
+      });
+    } catch (error) {
+      logger.error('Get public user reputation failed:', error);
       throw error;
     }
   }

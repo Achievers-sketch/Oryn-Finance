@@ -14,6 +14,7 @@ import { TradeConfirmationModal, PartialFillBanner, PartialFillResult } from '@/
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { ResolutionPanel } from '@/components/ResolutionPanel';
 import { OddsChart } from '@/components/OddsChart';
+import { CreatorReputation } from '@/components/markets/CreatorReputation';
 import { useMarketUpdates } from '@/contexts/WebSocketContext';
 import { useOffline } from '@/hooks/useOffline';
 import { useI18n } from '@/i18n';
@@ -359,6 +360,8 @@ export default function MarketDetail() {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            <CreatorReputation creatorAddress={currentMarket.creator} />
+
             {/* Trading Interface */}
             <div className="glass-card p-6 sticky top-24">
               <Tabs value={tradeType} onValueChange={(v) => setTradeType(v as 'buy' | 'sell')}>

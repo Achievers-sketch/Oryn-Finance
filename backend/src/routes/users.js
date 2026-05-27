@@ -38,6 +38,11 @@ router.get('/reputation',
   asyncHandler(userController.getUserReputation)
 );
 
+// Get public reputation for a wallet address
+router.get('/:walletAddress/reputation',
+  asyncHandler(userController.getPublicUserReputation)
+);
+
 // Get user by wallet address (public info only)
 router.get('/:walletAddress',
   asyncHandler(userController.getUserByAddress)

@@ -302,6 +302,14 @@ export const userService = {
     return response.data;
   },
 
+  async getPublicReputation(address: string): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.USER_REPUTATION_BY_ADDRESS(address));
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to fetch user reputation');
+    }
+    return response.data;
+  },
+
   async getUserPositions(authToken: string, filters?: { status?: string; page?: number; limit?: number }): Promise<any> {
     apiClient.setAuthToken(authToken);
     const queryParams = new URLSearchParams();
