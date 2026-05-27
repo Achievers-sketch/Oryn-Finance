@@ -249,6 +249,83 @@ class LeaderboardController {
     }
   }
 
+  // Get advanced leaderboard metrics: win-rate leaders, ROI leaders, most accurate trader badge
+  static async getAdvancedMetrics(req, res) {
+    try {
+      const { limit = 20 } = req.query;
+      const parsedLimit = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
+
+      // Win-rate leaders — users with most predictions and best win rate
+      const winRateLeaders = await User.find({
+        isActive: true,
+        'statistics.totalPredictions': { $gte: 5 },
+      })
+        .sort({ 'statistics.winRate': -1, 'statistics.totalPredictions': -1 })
+        .limit(parsedLimit)
+        .lean();
+
+      // ROI leaders — sort by profit/loss relative to volume
+      const roiLeaders = await User.find({
+        isActive: true,
+        'statistics.totalVolume': { $gt: 0 },
+      })
+        .lean()
+        .then((users) =>
+          users
+            .map((u) => ({
+              ...u,
+              roi:
+                u.statistics.totalVolume > 0
+                  ? ((u.statistics.profitLoss / u.statistics.totalVolume) * 100)
+                  : 0,
+            }))
+            .sort((a, b) => b.roi - a.roi)
+            .slice(0, parsedLimit)
+        );
+
+      // Most accurate trader — highest win rate with minimum 10 trades
+      const mostAccurate = await User.find({
+        isActive: true,
+        'statistics.totalPredictions': { $gte: 10 },
+      })
+        .sort({ 'statistics.winRate': -1 })
+        .limit(1)
+        .lean();
+
+      const formatUser = (user, index, extra = {}) => ({
+        rank: index + 1,
+        walletAddress: user.walletAddress,
+        username: user.username || null,
+        reputationScore: user.reputationScore || 0,
+        level: user.level || 'rookie',
+        totalPredictions: user.statistics?.totalPredictions || 0,
+        successfulPredictions: user.statistics?.successfulPredictions || 0,
+        winRate: Number(((user.statistics?.winRate || 0) * 100).toFixed(2)),
+        totalVolume: user.statistics?.totalVolume || 0,
+        profitLoss: user.statistics?.profitLoss || 0,
+        ...extra,
+      });
+
+      res.json({
+        success: true,
+        data: {
+          winRateLeaders: winRateLeaders.map((u, i) => formatUser(u, i)),
+          roiLeaders: roiLeaders.map((u, i) =>
+            formatUser(u, i, { roi: Number(u.roi.toFixed(2)) })
+          ),
+          mostAccurateTrader:
+            mostAccurate.length > 0
+              ? { ...formatUser(mostAccurate[0], 0), badge: 'most-accurate-trader' }
+              : null,
+        },
+        metadata: { limit: parsedLimit },
+      });
+    } catch (error) {
+      logger.error('Get advanced leaderboard metrics failed:', error);
+      throw error;
+    }
+  }
+
   // Get user's rank and position
   static async getUserRank(req, res) {
     try {

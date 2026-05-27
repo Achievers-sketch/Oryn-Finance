@@ -15,6 +15,7 @@ import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { ResolutionPanel } from '@/components/ResolutionPanel';
 import { OddsChart } from '@/components/OddsChart';
 import { useMarketUpdates } from '@/contexts/WebSocketContext';
+import { useOffline } from '@/hooks/useOffline';
 
 function formatVolume(volume: number): string {
   if (volume >= 1000000) return `$${(volume / 1000000).toFixed(2)}M`;
@@ -26,6 +27,7 @@ export default function MarketDetail() {
   const { id } = useParams();
   const { isConnected, connect, publicKey, signTransaction } = useWallet();
   const { marketData } = useMarketUpdates(id || '');
+  const isOffline = useOffline();
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
   const [position, setPosition] = useState<'YES' | 'NO'>('YES');
   const [amount, setAmount] = useState('');
@@ -318,11 +320,12 @@ export default function MarketDetail() {
 
             {/* Dynamic Odds Visualization */}
             <div className="glass-card p-6">
-              <h2 className="text-lg font-semibold mb-4">Market Odds — Live Probability</h2>
+              <h2 className="text-lg font-semibold mb-4">Market Performance</h2>
               <OddsChart
                 marketId={currentMarket.id}
                 initialYesPrice={currentMarket.yesPrice}
                 initialNoPrice={currentMarket.noPrice}
+                initialVolume={currentMarket.volume}
               />
             </div>
 
@@ -430,7 +433,6 @@ export default function MarketDetail() {
                         </div>
                       </>
                     )}
-                  </div>
                   </div>
 
                   {/* Trade Button */}

@@ -59,6 +59,10 @@ impl OracleResolver {
             return Err(Error::from(OrynError::InvalidInput));
         }
 
+        if threshold == 0 {
+            return Err(Error::from(OrynError::InvalidInput));
+        }
+
         admin.require_auth();
 
         env.storage().persistent().set(&StorageKey::Admin, &admin);
@@ -105,6 +109,14 @@ impl OracleResolver {
     ) -> Result<(), Error> {
         oracle.require_auth();
 
+        let oracle_info: OracleInfo = env.storage().persistent()
+            .get(&StorageKey::Oracle(oracle.clone()))
+            .ok_or(Error::from(OrynError::OracleNotRegistered))?;
+
+        if !oracle_info.active {
+            return Err(Error::from(OrynError::OracleNotRegistered));
+        }
+
         let mut res = env.storage().persistent()
             .get(&StorageKey::Market(market.clone()))
             .unwrap_or(MarketResolution {
@@ -114,6 +126,10 @@ impl OracleResolver {
                 deadline: None,
                 oracles: Vec::new(&env),
             });
+
+        if res.oracles.contains(&oracle) {
+            return Err(Error::from(OrynError::InvalidInput));
+        }
 
         let count = res.votes.get(outcome).unwrap_or(0) + 1;
         res.votes.set(outcome, count);
@@ -154,7 +170,7 @@ impl OracleResolver {
 
         let outcome = res
             .outcome
-            .ok_or(Error::from(OrynError::InvalidInput))?;
+            .ok_or(Error::from(OrynError::ConsensusNotReached))?;
 
         env.events().publish(
             (symbol_short!("resolve"), symbol_short!("final")),
@@ -177,5 +193,153 @@ impl OracleResolver {
             return Err(Error::from(OrynError::Unauthorized));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use soroban_sdk::{
+        testutils::{Address as _, Ledger},
+        Address, Bytes, Env,
+    };
+
+    fn proof(env: &Env) -> Bytes {
+        Bytes::from_slice(env, &[1, 2, 3, 4])
+    }
+
+    fn set_timestamp(env: &Env, timestamp: u64) {
+        env.ledger().with_mut(|li| {
+            li.timestamp = timestamp;
+        });
+    }
+
+    fn setup(env: &Env, threshold: u32) -> (OracleResolverClient<'_>, Address, Address) {
+        let admin = Address::generate(env);
+        let contract_id = env.register_contract(None, OracleResolver);
+        let client = OracleResolverClient::new(env, &contract_id);
+        client.initialize(&admin, &threshold);
+        (client, admin, contract_id)
+    }
+
+    #[test]
+    fn test_registered_oracles_reach_threshold_and_finalize_after_dispute_period() {
+        let env = Env::default();
+        env.mock_all_auths();
+        set_timestamp(&env, 10);
+
+        let (client, admin, contract_id) = setup(&env, 2);
+        let oracle_a = Address::generate(&env);
+        let oracle_b = Address::generate(&env);
+        let market = Address::generate(&env);
+        let proof = proof(&env);
+
+        client.register_oracle(&admin, &oracle_a, &120);
+        client.register_oracle(&admin, &oracle_b, &95);
+
+        client.submit_resolution(&oracle_a, &market, &true, &proof);
+
+        let pending: MarketResolution = env.as_contract(&contract_id, || {
+            env.storage().persistent()
+                .get(&StorageKey::Market(market.clone()))
+                .unwrap()
+        });
+        assert_eq!(pending.outcome, None);
+        assert_eq!(pending.votes.get(true), Some(1));
+
+        client.submit_resolution(&oracle_b, &market, &true, &proof);
+
+        let resolved: MarketResolution = env.as_contract(&contract_id, || {
+            env.storage().persistent()
+                .get(&StorageKey::Market(market.clone()))
+                .unwrap()
+        });
+        assert_eq!(resolved.outcome, Some(true));
+        assert_eq!(resolved.votes.get(true), Some(2));
+        assert_eq!(resolved.deadline, Some(10 + DISPUTE_PERIOD));
+
+        set_timestamp(&env, 10 + DISPUTE_PERIOD + 1);
+        client.finalize(&market);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_initialize_with_zero_threshold_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let admin = Address::generate(&env);
+        let contract_id = env.register_contract(None, OracleResolver);
+        let client = OracleResolverClient::new(&env, &contract_id);
+        client.initialize(&admin, &0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_unregistered_oracle_cannot_submit_resolution() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let (client, _, _) = setup(&env, 2);
+        let oracle = Address::generate(&env);
+        let market = Address::generate(&env);
+
+        client.submit_resolution(&oracle, &market, &true, &proof(&env));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_duplicate_oracle_submission_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let (client, admin, _) = setup(&env, 2);
+        let oracle = Address::generate(&env);
+        let market = Address::generate(&env);
+        let proof = proof(&env);
+
+        client.register_oracle(&admin, &oracle, &150);
+        client.submit_resolution(&oracle, &market, &true, &proof);
+        client.submit_resolution(&oracle, &market, &true, &proof);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_finalize_before_consensus_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        set_timestamp(&env, 20);
+
+        let (client, admin, _) = setup(&env, 2);
+        let oracle = Address::generate(&env);
+        let market = Address::generate(&env);
+
+        client.register_oracle(&admin, &oracle, &100);
+        client.submit_resolution(&oracle, &market, &true, &proof(&env));
+
+        set_timestamp(&env, 20 + DISPUTE_PERIOD + 1);
+        client.finalize(&market);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_finalize_before_dispute_period_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        set_timestamp(&env, 30);
+
+        let (client, admin, _) = setup(&env, 2);
+        let oracle_a = Address::generate(&env);
+        let oracle_b = Address::generate(&env);
+        let market = Address::generate(&env);
+        let proof = proof(&env);
+
+        client.register_oracle(&admin, &oracle_a, &110);
+        client.register_oracle(&admin, &oracle_b, &105);
+        client.submit_resolution(&oracle_a, &market, &false, &proof);
+        client.submit_resolution(&oracle_b, &market, &false, &proof);
+
+        set_timestamp(&env, 30 + DISPUTE_PERIOD);
+        client.finalize(&market);
     }
 }

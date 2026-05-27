@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Trophy, Medal, TrendingUp, Percent, Hash, Star, RefreshCw, Loader2 } from 'lucide-react';
+import { Trophy, Medal, TrendingUp, Percent, Hash, Star, RefreshCw, Loader2, Target, DollarSign, Award } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,22 @@ import { MagicCard } from '@/components/magicui/magic-card';
 import { toast } from 'sonner';
 
 type TimeFrame = 'all' | 'monthly' | 'weekly';
+type MetricsTab = 'reputation' | 'winrate' | 'roi';
+
+interface AdvancedEntry {
+  rank: number;
+  walletAddress: string;
+  username: string | null;
+  winRate: number;
+  totalPredictions: number;
+  successfulPredictions: number;
+  reputationScore: number;
+  level: string;
+  totalVolume?: number;
+  profitLoss?: number;
+  roi?: number;
+  badge?: string;
+}
 
 function formatReputation(score: number): string {
   if (score >= 1000) {
@@ -31,7 +47,11 @@ const rankBgColors: Record<number, string> = {
 
 export default function Leaderboard() {
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('all');
+  const [activeTab, setActiveTab] = useState<MetricsTab>('reputation');
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
+  const [winRateLeaders, setWinRateLeaders] = useState<AdvancedEntry[]>([]);
+  const [roiLeaders, setRoiLeaders] = useState<AdvancedEntry[]>([]);
+  const [mostAccurate, setMostAccurate] = useState<AdvancedEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,17 +59,30 @@ export default function Leaderboard() {
     try {
       setLoading(true);
       setError(null);
-      const data = await apiService.leaderboard.getReputationLeaderboard(50);
-      const mapped: LeaderboardEntry[] = data.map((item: any) => ({
-        rank: item.rank,
-        address: item.walletAddress,
-        username: item.username || undefined,
-        totalProfit: Number(item.reputationScore || 0),
-        trades: Number(item.totalPredictions || 0),
-        winRate: Number(((item.winRate || 0) * 100).toFixed(2)),
-        favoriteCategory: item.level || 'rookie'
-      }));
-      setLeaderboardData(mapped);
+
+      const [reputationData, advancedData] = await Promise.allSettled([
+        apiService.leaderboard.getReputationLeaderboard(50),
+        apiService.leaderboard.getAdvancedMetrics(20),
+      ]);
+
+      if (reputationData.status === 'fulfilled') {
+        const mapped: LeaderboardEntry[] = reputationData.value.map((item: any) => ({
+          rank: item.rank,
+          address: item.walletAddress,
+          username: item.username || undefined,
+          totalProfit: Number(item.reputationScore || 0),
+          trades: Number(item.totalPredictions || 0),
+          winRate: Number(((item.winRate || 0) * 100).toFixed(2)),
+          favoriteCategory: item.level || 'rookie',
+        }));
+        setLeaderboardData(mapped);
+      }
+
+      if (advancedData.status === 'fulfilled' && advancedData.value) {
+        setWinRateLeaders(advancedData.value.winRateLeaders || []);
+        setRoiLeaders(advancedData.value.roiLeaders || []);
+        setMostAccurate(advancedData.value.mostAccurateTrader || null);
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load leaderboard');
       toast.error(err.message || 'Failed to load leaderboard');
@@ -98,7 +131,7 @@ export default function Leaderboard() {
         </div>
 
         {/* Time Frame Filter */}
-        <div className="flex justify-center gap-2 mb-10">
+        <div className="flex justify-center gap-2 mb-6">
           {(['all', 'monthly', 'weekly'] as TimeFrame[]).map((tf) => (
             <Button
               key={tf}
@@ -110,6 +143,40 @@ export default function Leaderboard() {
               {tf === 'all' ? 'All Time' : tf}
             </Button>
           ))}
+        </div>
+
+        {/* Metrics Tab Switcher */}
+        <div className="flex justify-center gap-2 mb-10">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={loading}
+            onClick={() => setActiveTab('reputation')}
+            className={`flex items-center gap-1 ${activeTab === 'reputation' ? 'active tab-button' : ''}`}
+          >
+            <Trophy className="w-4 h-4" />
+            Reputation
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={loading}
+            onClick={() => setActiveTab('winrate')}
+            className={`flex items-center gap-1 ${activeTab === 'winrate' ? 'active tab-button' : ''}`}
+          >
+            <Target className="w-4 h-4" />
+            Win Rate
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={loading}
+            onClick={() => setActiveTab('roi')}
+            className={`flex items-center gap-1 ${activeTab === 'roi' ? 'active tab-button' : ''}`}
+          >
+            <DollarSign className="w-4 h-4" />
+            ROI
+          </Button>
         </div>
 
 
@@ -167,8 +234,8 @@ export default function Leaderboard() {
         </div>
         )}
 
-        {/* Full Leaderboard Table */}
-        {!loading && leaderboardData.length > 0 && (
+        {/* Reputation Leaderboard Table */}
+        {!loading && activeTab === 'reputation' && leaderboardData.length > 0 && (
         <div className="glass-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -195,7 +262,7 @@ export default function Leaderboard() {
                 </tr>
               </thead>
               <tbody>
-                {leaderboardData.map((entry, index) => (
+                {leaderboardData.map((entry) => (
                   <tr
                     key={entry.address}
                     className="border-b border-border/50 hover:bg-muted/20 transition-colors"
@@ -235,6 +302,160 @@ export default function Leaderboard() {
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        )}
+
+        {/* Win Rate Leaders Table */}
+        {!loading && activeTab === 'winrate' && (
+        <div className="glass-card overflow-hidden">
+          {mostAccurate && (
+            <div className="px-6 py-4 border-b border-border bg-warning/5 flex items-center gap-3">
+              <Award className="w-5 h-5 text-warning" />
+              <span className="text-sm font-medium">
+                Most Accurate Trader:{' '}
+                <span className="text-warning">
+                  {mostAccurate.username || mostAccurate.walletAddress}
+                </span>{' '}
+                — {mostAccurate.winRate}% win rate ({mostAccurate.totalPredictions} trades)
+              </span>
+            </div>
+          )}
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="text-left py-4 px-6 font-semibold">
+                    <Hash className="w-4 h-4 inline mr-2" />
+                    Rank
+                  </th>
+                  <th className="text-left py-4 px-6 font-semibold">Trader</th>
+                  <th className="text-right py-4 px-6 font-semibold">
+                    <Target className="w-4 h-4 inline mr-2" />
+                    Win Rate
+                  </th>
+                  <th className="text-right py-4 px-6 font-semibold hidden md:table-cell">Wins</th>
+                  <th className="text-right py-4 px-6 font-semibold hidden md:table-cell">Total</th>
+                  <th className="text-right py-4 px-6 font-semibold hidden lg:table-cell">
+                    <Star className="w-4 h-4 inline mr-2" />
+                    Level
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {winRateLeaders.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-10 text-center text-muted-foreground">
+                      No data yet — traders need at least 5 predictions to appear here.
+                    </td>
+                  </tr>
+                ) : (
+                  winRateLeaders.map((entry) => (
+                    <tr
+                      key={entry.walletAddress}
+                      className="border-b border-border/50 hover:bg-muted/20 transition-colors"
+                    >
+                      <td className="py-4 px-6">
+                        <span className={`font-bold ${rankColors[entry.rank] || 'text-foreground'}`}>
+                          #{entry.rank}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="font-medium">
+                          {entry.username || entry.walletAddress}
+                        </div>
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        <span className={entry.winRate >= 60 ? 'text-success font-bold' : entry.winRate >= 50 ? 'text-foreground' : 'text-destructive'}>
+                          {entry.winRate}%
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-right hidden md:table-cell text-success">
+                        {entry.successfulPredictions}
+                      </td>
+                      <td className="py-4 px-6 text-right hidden md:table-cell">
+                        {entry.totalPredictions}
+                      </td>
+                      <td className="py-4 px-6 text-right hidden lg:table-cell">
+                        <Badge variant="outline" className="text-xs">{entry.level}</Badge>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        )}
+
+        {/* ROI Leaders Table */}
+        {!loading && activeTab === 'roi' && (
+        <div className="glass-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="text-left py-4 px-6 font-semibold">
+                    <Hash className="w-4 h-4 inline mr-2" />
+                    Rank
+                  </th>
+                  <th className="text-left py-4 px-6 font-semibold">Trader</th>
+                  <th className="text-right py-4 px-6 font-semibold">
+                    <DollarSign className="w-4 h-4 inline mr-2" />
+                    ROI
+                  </th>
+                  <th className="text-right py-4 px-6 font-semibold hidden md:table-cell">P&amp;L</th>
+                  <th className="text-right py-4 px-6 font-semibold hidden md:table-cell">Volume</th>
+                  <th className="text-right py-4 px-6 font-semibold hidden lg:table-cell">
+                    <Star className="w-4 h-4 inline mr-2" />
+                    Level
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {roiLeaders.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-10 text-center text-muted-foreground">
+                      No ROI data available yet.
+                    </td>
+                  </tr>
+                ) : (
+                  roiLeaders.map((entry) => (
+                    <tr
+                      key={entry.walletAddress}
+                      className="border-b border-border/50 hover:bg-muted/20 transition-colors"
+                    >
+                      <td className="py-4 px-6">
+                        <span className={`font-bold ${rankColors[entry.rank] || 'text-foreground'}`}>
+                          #{entry.rank}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="font-medium">
+                          {entry.username || entry.walletAddress}
+                        </div>
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        <span className={`font-bold ${(entry.roi ?? 0) >= 0 ? 'text-success' : 'text-destructive'}`}>
+                          {(entry.roi ?? 0) >= 0 ? '+' : ''}{entry.roi?.toFixed(2)}%
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-right hidden md:table-cell">
+                        <span className={`${(entry.profitLoss ?? 0) >= 0 ? 'text-success' : 'text-destructive'}`}>
+                          {(entry.profitLoss ?? 0) >= 0 ? '+' : ''}{entry.profitLoss?.toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-right hidden md:table-cell">
+                        {entry.totalVolume?.toFixed(2)}
+                      </td>
+                      <td className="py-4 px-6 text-right hidden lg:table-cell">
+                        <Badge variant="outline" className="text-xs">{entry.level}</Badge>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

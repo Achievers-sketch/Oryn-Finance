@@ -37,6 +37,7 @@ export const ENDPOINTS = {
   // Markets
   MARKETS: '/markets',
   MARKET_DETAIL: (id: string) => `/markets/${id}`,
+  MARKET_HISTORY: (id: string) => `/markets/${id}/history`,
   MARKET_TRADES: (id: string) => `/markets/${id}/trades`,
   
   // Trades
@@ -55,6 +56,11 @@ export const ENDPOINTS = {
   // Leaderboard
   LEADERBOARD: '/leaderboard',
   REPUTATION_LEADERBOARD: '/leaderboard/reputation',
+  LEADERBOARD_ADVANCED: '/leaderboard/advanced-metrics',
+
+  // Push Notifications
+  PUSH_VAPID_KEY: '/push/vapid-public-key',
+  PUSH_SUBSCRIBE: '/push/subscribe',
   
   // Analytics
   ANALYTICS: '/analytics',
@@ -63,6 +69,22 @@ export const ENDPOINTS = {
   ANALYTICS_PRICE_TRENDS: '/analytics/price-trends',
   ANALYTICS_USER_INSIGHTS: '/analytics/user-insights',
   INDEXED_EVENTS: '/analytics/events',
+
+  // Liquidity
+  LIQUIDITY_STATS: '/liquidity/stats',
+  LIQUIDITY_POOLS: '/liquidity/pools',
+  LIQUIDITY_POOL: (marketId: string) => `/liquidity/pools/${marketId}`,
+  LIQUIDITY_DEPTH: (marketId: string) => `/liquidity/pools/${marketId}/depth`,
+
+  // Admin
+  ADMIN_DASHBOARD: '/admin/dashboard',
+  ADMIN_USERS: '/admin/users',
+  ADMIN_USER: (walletAddress: string) => `/admin/users/${walletAddress}`,
+  ADMIN_MARKETS_RESOLVE: (marketId: string) => `/admin/markets/${marketId}/resolve`,
+  ADMIN_TRADES_PENDING: '/admin/trades/pending',
+  ADMIN_TRADE: (tradeId: string) => `/admin/trades/${tradeId}`,
+  ADMIN_CONFIG: '/admin/config',
+  ADMIN_LOGS: '/admin/logs',
 };
 
 // Response types

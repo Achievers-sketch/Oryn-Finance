@@ -27,4 +27,10 @@ router.get('/user-rank',
   asyncHandler(leaderboardController.getUserRank)
 );
 
+// Get advanced metrics: win-rate leaders, ROI leaders, most accurate trader
+router.get('/advanced-metrics',
+  optionalAuth,
+  asyncHandler(leaderboardController.getAdvancedMetrics)
+);
+
 module.exports = router;

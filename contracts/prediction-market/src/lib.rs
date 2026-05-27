@@ -482,6 +482,59 @@ mod tests {
     }
 
     #[test]
+    fn test_simulated_market_lifecycle_tracks_trades_resolution_and_claims() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let id = env.register_contract(None, PredictionMarket);
+        let client = PredictionMarketClient::new(&env, &id);
+
+        let admin = Address::generate(&env);
+        let oracle = Address::generate(&env);
+        let yes_trader = Address::generate(&env);
+        let no_trader = Address::generate(&env);
+        client.initialize(&admin, &oracle, &make_market(&env, &oracle));
+
+        client.buy(&yes_trader, &TokenType::Yes, &3_000_000_000, &500_000_000);
+        client.buy(&no_trader, &TokenType::No, &2_000_000_000, &400_000_000);
+        client.sell(&yes_trader, &TokenType::Yes, &1_000_000_000, &600_000_000);
+
+        let yes_position = client.get_position(&yes_trader);
+        assert_eq!(yes_position.yes_tokens, 2_000_000_000);
+        assert_eq!(yes_position.realized_pnl, 600_000_000);
+
+        let no_position = client.get_position(&no_trader);
+        assert_eq!(no_position.no_tokens, 2_000_000_000);
+
+        client.resolve(&oracle, &true);
+
+        let market = client.get_market();
+        assert_eq!(market.status, MarketStatus::Resolved);
+        assert_eq!(market.outcome, Some(true));
+
+        let winning_claim = client.claim(&yes_trader);
+        let losing_claim = client.claim(&no_trader);
+        assert_eq!(winning_claim, 2_000_000_000);
+        assert_eq!(losing_claim, 0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_buy_after_resolution_fails() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let id = env.register_contract(None, PredictionMarket);
+        let client = PredictionMarketClient::new(&env, &id);
+
+        let admin = Address::generate(&env);
+        let oracle = Address::generate(&env);
+        let user = Address::generate(&env);
+        client.initialize(&admin, &oracle, &make_market(&env, &oracle));
+        client.resolve(&oracle, &true);
+
+        client.buy(&user, &TokenType::Yes, &1_000_000_000, &500_000_000);
+    }
+
+    #[test]
     #[should_panic]
     fn test_claim_twice_fails() {
         let env = Env::default();

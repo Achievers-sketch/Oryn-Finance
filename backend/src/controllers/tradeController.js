@@ -278,9 +278,14 @@ class TradeController {
     } = req.query;
 
     const filter = {
-      userWalletAddress: req.user.walletAddress,
-      status: status || 'confirmed'
+      userWalletAddress: req.user.walletAddress
     };
+
+    if (status && status !== 'all') {
+      filter.status = status;
+    } else if (!status) {
+      filter.status = 'confirmed';
+    }
 
     if (marketId) filter.marketId = marketId;
     if (tokenType) filter.tokenType = tokenType;
@@ -341,12 +346,27 @@ class TradeController {
     ]);
 
     // Collect unique market IDs for a single batch price lookup
-    const uniqueMarketIds = [...new Set(trades.map(t => t.marketId))];
+    const uniqueMarketIds = [
+      ...new Set(
+        trades
+          .map((trade) => (typeof trade.marketId === 'string'
+            ? trade.marketId
+            : trade.marketId?.marketId || null))
+          .filter(Boolean)
+      )
+    ];
     const marketPriceMap = {};
     if (uniqueMarketIds.length > 0) {
       const markets = await Market.find(
         { marketId: { $in: uniqueMarketIds } },
-        { marketId: 1, currentYesPrice: 1, currentNoPrice: 1 }
+        {
+          marketId: 1,
+          question: 1,
+          category: 1,
+          resolvedOutcome: 1,
+          currentYesPrice: 1,
+          currentNoPrice: 1
+        }
       ).lean();
       for (const m of markets) {
         marketPriceMap[m.marketId] = m;
@@ -354,12 +374,28 @@ class TradeController {
     }
 
     const tradesWithPnL = trades.map((trade) => {
-      const market = marketPriceMap[trade.marketId];
+      const tradeMarketId = typeof trade.marketId === 'string'
+        ? trade.marketId
+        : trade.marketId?.marketId || null;
+      const market = tradeMarketId ? marketPriceMap[tradeMarketId] : null;
       const currentPrice = trade.tokenType === 'yes'
         ? market?.currentYesPrice || 0.5
         : market?.currentNoPrice || 0.5;
-      const pnl = trade.calculatePnL ? trade.calculatePnL(currentPrice) : null;
-      return { ...trade, currentPnL: pnl };
+      const hasRealizedOrOpenExposure = ['confirmed', 'partially_filled'].includes(trade.status);
+      const costBasis = (trade.amount * trade.price) + (trade.fees?.total || 0);
+      const positionValue = trade.amount * currentPrice;
+      const pnl = hasRealizedOrOpenExposure
+        ? (trade.tradeType === 'buy' ? positionValue - costBasis : costBasis - positionValue)
+        : null;
+
+      return {
+        ...trade,
+        marketId: tradeMarketId || trade.marketId,
+        marketQuestion: market?.question || trade.marketId?.question || tradeMarketId,
+        marketCategory: market?.category || trade.marketId?.category || null,
+        resolvedOutcome: market?.resolvedOutcome || trade.marketId?.resolvedOutcome || null,
+        currentPnL: pnl
+      };
     });
 
     res.json({

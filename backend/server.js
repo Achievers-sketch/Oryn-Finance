@@ -10,7 +10,9 @@ require('dotenv').config();
 
 const connectDB = require('./src/config/database');
 const logger = require('./src/config/logger');
+const { validateEnv } = require('./src/config/envValidator');
 const { errorHandler, notFound } = require('./src/middleware/errorHandler');
+const { detectAbuse } = require('./src/middleware/abuseDetection');
 
 // Import routes
 const authRoutes = require('./src/routes/auth');       // Issue #22: httpOnly cookie auth
@@ -23,12 +25,15 @@ const leaderboardRoutes = require('./src/routes/leaderboard');
 const analyticsRoutes = require('./src/routes/analytics');
 const adminRoutes = require('./src/routes/admin');
 const oracleRoutes = require('./src/routes/oracle');
+const liquidityRoutes = require('./src/routes/liquidity');
+const pushNotificationRoutes = require('./src/routes/pushNotifications');
 
 // Import services
 const backgroundJobs = require('./src/services/backgroundJobs');
 const websocketHandler = require('./src/services/websocketHandler');
 const contractEventIndexer = require('./src/services/contractEventIndexer');
 const transactionRetryQueue = require('./src/services/transactionRetryQueue'); // Issue #23
+const pushNotificationService = require('./src/services/pushNotificationService');
 
 class OrynBackendServer {
   constructor() {
@@ -45,6 +50,12 @@ class OrynBackendServer {
 
   async initialize() {
     try {
+      // Validate required environment variables before anything else
+      validateEnv();
+
+      // Initialize push notification VAPID keys
+      pushNotificationService.initVapid();
+
       // Connect to database (optional for now)
       try {
         await connectDB();
@@ -96,6 +107,9 @@ class OrynBackendServer {
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization']
     }));
+
+    // Abuse detection (pattern analysis + IP blocking)
+    this.app.use('/api/', detectAbuse);
 
     // Rate limiting
     const limiter = rateLimit({
@@ -163,9 +177,13 @@ class OrynBackendServer {
     this.app.use('/api/oracle', oracleRoutes);
     this.app.use('/api/leaderboard', leaderboardRoutes);
     this.app.use('/api/analytics', analyticsRoutes);
+    this.app.use('/api/liquidity', liquidityRoutes);
 
     // Transaction routes (mixed auth - some endpoints require auth, others don't)
     this.app.use('/api/transactions', transactionRoutes);
+
+    // Push notification routes
+    this.app.use('/api/push', pushNotificationRoutes);
 
     // Protected routes
     this.app.use('/api/trades', tradeRoutes);
