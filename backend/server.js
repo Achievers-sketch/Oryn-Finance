@@ -32,6 +32,8 @@ const crossChainRoutes = require('./src/routes/crossChain');
 const insuranceRoutes = require('./src/routes/insurance');
 const riskAnalyticsRoutes = require('./src/routes/riskAnalytics');
 const sentimentRoutes = require('./src/routes/sentiment');
+const taxReportsRoutes = require('./src/routes/taxReports');
+const geoFailoverRoutes = require('./src/routes/geoFailover');
 
 
 // Import services
@@ -43,6 +45,7 @@ const pushNotificationService = require('./src/services/pushNotificationService'
 const encryptionService = require('./src/services/encryptionService');
 const redisAdapter = require('./src/services/redisAdapter');
 const tradeBatcher = require('./src/services/tradeBatcher');
+const geoFailoverService = require('./src/services/geoFailoverService');
 
 class OrynBackendServer {
   constructor() {
@@ -219,6 +222,7 @@ class OrynBackendServer {
     this.app.use('/api/insurance', insuranceRoutes);
     this.app.use('/api/risk', riskAnalyticsRoutes);
     this.app.use('/api/sentiment', sentimentRoutes);
+    this.app.use('/api/geo-failover', geoFailoverRoutes);
 
     // Transaction routes (mixed auth - some endpoints require auth, others don't)
     this.app.use('/api/transactions', transactionRoutes);
@@ -232,6 +236,7 @@ class OrynBackendServer {
     this.app.use('/api/trades', tradeRoutes);
     this.app.use('/api/users', userRoutes);
     this.app.use('/api/admin', adminRoutes);
+    this.app.use('/api/tax', taxReportsRoutes);
 
     // API documentation
     if (process.env.NODE_ENV !== 'production') {
@@ -290,6 +295,14 @@ class OrynBackendServer {
         logger.warn('Failed to start contract event indexer:', error.message);
         logger.warn('Contract event indexing will be disabled');
       }
+
+      // Start geo-failover health monitoring
+      try {
+        geoFailoverService.start();
+        logger.info('Geo-failover health monitoring started');
+      } catch (error) {
+        logger.warn('Failed to start geo-failover monitoring:', error.message);
+      }
     }
   }
 
@@ -314,6 +327,14 @@ class OrynBackendServer {
             logger.info('Contract event indexer stopped');
           } catch (error) {
             logger.warn('Error stopping contract event indexer:', error.message);
+          }
+
+          // Stop geo-failover monitoring
+          try {
+            geoFailoverService.stop();
+            logger.info('Geo-failover monitoring stopped');
+          } catch (error) {
+            logger.warn('Error stopping geo-failover monitoring:', error.message);
           }
 
           // Process all pending trades before shutdown
