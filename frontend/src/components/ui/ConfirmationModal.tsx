@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Info, AlertCircle, AlertTriangle } from "lucide-react";
+import { Info, AlertCircle, AlertTriangle, Loader2, CheckCircle2 } from "lucide-react";
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -99,90 +99,173 @@ export function TradeConfirmationModal({
     slippage,
   } = tradeDetails;
 
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading && isProcessing) {
+      const t = setTimeout(() => setIsProcessing(false), 600);
+      return () => clearTimeout(t);
+    }
+  }, [isLoading, isProcessing]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsProcessing(false);
+    }
+  }, [isOpen]);
+
+  const handleConfirmClick = () => {
+    setIsProcessing(true);
+    onConfirm();
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open && !isLoading) onClose(); }}>
       <DialogContent className="sm:max-w-[425px] glass-card border-white/10 text-white">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold flex items-center gap-2">
-            Confirm {type === 'buy' ? 'Buy' : 'Sell'} Order
+            {isProcessing ? (
+              <>
+                <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                Processing Order...
+              </>
+            ) : (
+              `Confirm ${type === 'buy' ? 'Buy' : 'Sell'} Order`
+            )}
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Please review your trade details before confirming.
+            {isProcessing
+              ? 'Your order is being processed. This may take a moment.'
+              : 'Please review your trade details before confirming.'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-6 space-y-4">
-          <div className="flex justify-between items-end p-4 rounded-xl bg-white/[0.03] border border-white/5">
-            <div>
-              <span className="text-[10px] font-bold text-white/40 uppercase block mb-1">
-                You {type === 'buy' ? 'Pay' : 'Sell'}
-              </span>
-              <span className="text-2xl font-bold">{amount} USDC</span>
+        {isProcessing ? (
+          <div className="py-8 space-y-4">
+            <div className="flex items-center justify-center">
+              <div className="relative">
+                <div className="w-16 h-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+                <CheckCircle2 className="w-8 h-8 text-primary/60 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              </div>
             </div>
-            <div className="text-right">
-              <span className="text-[10px] font-bold text-white/40 uppercase block mb-1">
-                {type === 'buy' ? 'Receiving' : 'To Receive'}
-              </span>
-              <span className="text-lg font-bold text-primary">
-                {tokensReceived} {position}
-              </span>
-            </div>
-          </div>
 
-          <div className="space-y-3 px-1">
-            <div className="flex justify-between text-sm">
-              <span className="text-white/60">Price per token</span>
-              <span className="font-medium">{Math.round(price * 100)}¢</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-white/60">Execution Fee</span>
-              <span className="font-medium">{fee} USDC</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-white/60">Price Impact</span>
-              <span className={parseFloat(priceImpact) > 1 ? 'text-warning' : 'text-success'}>
-                {priceImpact}%
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-white/60">Max Slippage</span>
-              <span className="font-medium">{slippage}%</span>
-            </div>
-          </div>
-
-          {parseFloat(priceImpact) > 2 && (
-            <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 flex gap-2 items-start">
-              <AlertCircle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
-              <p className="text-xs text-warning/90">
-                High price impact detected. You may receive significantly fewer tokens than expected.
+            <div className="space-y-3">
+              <div className="w-full bg-muted/30 rounded-full h-2 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-primary to-secondary animate-pulse"
+                  style={{ width: '70%', transition: 'width 2s ease-in-out' }}
+                />
+              </div>
+              <p className="text-xs text-center text-muted-foreground">
+                Building and signing your transaction...
               </p>
             </div>
-          )}
 
-          <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 flex gap-2 items-start">
-            <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-            <p className="text-xs text-blue-300/80">
-              Large orders may be partially filled if liquidity is insufficient. Any unfilled portion will not be charged.
-            </p>
+            <div className="p-3 rounded-lg bg-muted/20 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">{type === 'buy' ? 'Buying' : 'Selling'}</span>
+                <span className="font-medium text-primary">{amount} USDC</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Receiving</span>
+                <span className="font-medium">{tokensReceived} {position}</span>
+              </div>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="py-6 space-y-4">
+            <div className="flex justify-between items-end p-4 rounded-xl bg-white/[0.03] border border-white/5">
+              <div>
+                <span className="text-[10px] font-bold text-white/40 uppercase block mb-1">
+                  You {type === 'buy' ? 'Pay' : 'Sell'}
+                </span>
+                <span className="text-2xl font-bold">{amount} USDC</span>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-bold text-white/40 uppercase block mb-1">
+                  {type === 'buy' ? 'Receiving' : 'To Receive'}
+                </span>
+                <span className="text-lg font-bold text-primary">
+                  {tokensReceived} {position}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-3 px-1">
+              <div className="flex justify-between text-sm">
+                <span className="text-white/60">Price per token</span>
+                <span className="font-medium">{Math.round(price * 100)}¢</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-white/60">Execution Fee</span>
+                <span className="font-medium">{fee} USDC</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-white/60">Price Impact</span>
+                <span className={parseFloat(priceImpact) > 1 ? 'text-warning' : 'text-success'}>
+                  {priceImpact}%
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-white/60">Max Slippage</span>
+                <span className="font-medium">{slippage}%</span>
+              </div>
+            </div>
+
+            {parseFloat(priceImpact) > 2 && (
+              <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 flex gap-2 items-start">
+                <AlertCircle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+                <p className="text-xs text-warning/90">
+                  High price impact detected. You may receive significantly fewer tokens than expected.
+                </p>
+              </div>
+            )}
+
+            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 flex gap-2 items-start">
+              <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-blue-300/80">
+                Large orders may be partially filled if liquidity is insufficient. Any unfilled portion will not be charged.
+              </p>
+            </div>
+          </div>
+        )}
 
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            disabled={isLoading}
-            className="border-white/10 hover:bg-white/5"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={onConfirm}
-            disabled={isLoading}
-            className="btn-primary-gradient flex-1"
-          >
-            {isLoading ? "Confirming..." : `Confirm ${type === 'buy' ? 'Buy' : 'Sell'}`}
-          </Button>
+          {isProcessing ? (
+            <Button
+              variant="outline"
+              disabled
+              className="border-white/10 w-full opacity-50"
+            >
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Processing...
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                onClick={onClose}
+                disabled={isLoading}
+                className="border-white/10 hover:bg-white/5"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleConfirmClick}
+                disabled={isLoading}
+                className="btn-primary-gradient flex-1"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                    Confirming...
+                  </>
+                ) : (
+                  `Confirm ${type === 'buy' ? 'Buy' : 'Sell'}`
+                )}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

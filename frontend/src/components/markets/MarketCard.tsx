@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { MagicCard } from '@/components/magicui/magic-card';
 import { cn } from '@/lib/utils';
 import { CountdownTimer } from '@/components/ui/CountdownTimer';
+import { ConfidenceMeter } from '@/components/markets/ConfidenceMeter';
 
 interface MarketCardProps {
   market: Market;
@@ -118,6 +119,11 @@ export function MarketCard({ market, featured = false }: MarketCardProps) {
 
           {/* Price Layout */}
           <div className="space-y-4 mb-6">
+            <ConfidenceMeter
+              liquidity={market.liquidity}
+              volume={market.volume}
+              compact
+            />
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-success shadow-[0_0_8px_rgba(34,197,94,0.5)]" />

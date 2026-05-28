@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowRight,
   Download,
@@ -14,6 +15,8 @@ import {
   TrendingDown,
   TrendingUp,
   Wallet,
+  Clock,
+  Circle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Layout } from '@/components/layout/Layout';
@@ -876,9 +879,19 @@ export default function Portfolio() {
 
           <div className="mt-6">
             {tradeHistoryLoading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Loader2 className="w-10 h-10 mx-auto mb-4 animate-spin" />
-                <p>Loading filtered trade history...</p>
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="p-4 rounded-lg bg-muted/20 animate-pulse">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 rounded-full bg-muted/40" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 bg-muted/30 rounded w-3/4" />
+                        <div className="h-3 bg-muted/20 rounded w-1/2" />
+                      </div>
+                      <div className="w-20 h-4 bg-muted/30 rounded" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : tradeHistory.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
@@ -887,40 +900,74 @@ export default function Portfolio() {
               </div>
             ) : (
               <div className="space-y-2">
-                {tradeHistory.map((trade: any) => (
-                  <Link
-                    key={trade.tradeId || trade._id}
-                    to={`/trade/${trade.tradeId || trade._id}`}
-                    className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group gap-4"
-                  >
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className={`w-2 h-2 mt-2 rounded-full ${trade.tradeType === 'buy' ? 'bg-success' : 'bg-destructive'}`} />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium line-clamp-1">{getTradeMarketQuestion(trade)}</p>
-                        <p className="text-xs text-muted-foreground capitalize mt-1">
-                          {trade.tradeType} {trade.tokenType?.toUpperCase()} · {formatAmount(trade.amount ?? 0)} tokens · {formatDateTime(getTradeTimestamp(trade))}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Fees {formatCurrency(trade.fees?.total ?? 0)} ·
-                          <span className={`ml-1 ${getTradeStatusClass(trade.status)}`}>
-                            P&amp;L {formatPnL(trade.currentPnL)}
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="text-right">
-                        <p className="text-sm font-semibold">
-                          {formatCurrency(trade.totalCost ?? 0)}
-                        </p>
-                        <p className={`text-xs ${getTradeStatusClass(trade.status)}`}>
-                          {formatStatusLabel(trade.status || 'unknown')}
-                        </p>
-                      </div>
-                      <ExternalLink className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  </Link>
-                ))}
+                <AnimatePresence mode="popLayout">
+                  {tradeHistory.map((trade: any, index: number) => (
+                    <motion.div
+                      key={trade.tradeId || trade._id}
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.25, delay: Math.min(index * 0.04, 0.4) }}
+                    >
+                      <Link
+                        to={`/trade/${trade.tradeId || trade._id}`}
+                        className="flex items-center justify-between p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors group gap-4"
+                      >
+                        <div className="flex items-start gap-3 min-w-0">
+                          <div className="relative">
+                            <div className={`w-2 h-2 mt-2 rounded-full ${
+                              trade.status === 'pending'
+                                ? 'bg-yellow-500 animate-pulse'
+                                : trade.tradeType === 'buy'
+                                  ? 'bg-success'
+                                  : 'bg-destructive'
+                            }`} />
+                            {trade.status === 'pending' && (
+                              <div className="absolute inset-0 w-2 h-2 rounded-full bg-yellow-500/40 animate-ping" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium line-clamp-1">{getTradeMarketQuestion(trade)}</p>
+                            <p className="text-xs text-muted-foreground capitalize mt-1">
+                              {trade.status === 'pending' && (
+                                <span className="inline-flex items-center gap-1 mr-2">
+                                  <Circle className="w-2 h-2 fill-yellow-500 text-yellow-500 animate-pulse" />
+                                  <span className="text-yellow-500">Pending</span>
+                                </span>
+                              )}
+                              {trade.tradeType} {trade.tokenType?.toUpperCase()} · {formatAmount(trade.amount ?? 0)} tokens · {formatDateTime(getTradeTimestamp(trade))}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Fees {formatCurrency(trade.fees?.total ?? 0)} ·
+                              <span className={`ml-1 ${getTradeStatusClass(trade.status)}`}>
+                                P&amp;L {formatPnL(trade.currentPnL)}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="text-right">
+                            <p className="text-sm font-semibold">
+                              {formatCurrency(trade.totalCost ?? 0)}
+                            </p>
+                            <p className={`text-xs ${getTradeStatusClass(trade.status)}`}>
+                              {trade.status === 'pending' ? (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  Confirming
+                                </span>
+                              ) : (
+                                formatStatusLabel(trade.status || 'unknown')
+                              )}
+                            </p>
+                          </div>
+                          <ExternalLink className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </Link>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
               </div>
             )}
           </div>
