@@ -163,6 +163,12 @@ const tradeValidations = {
       .isIn(['buy', 'sell'])
       .withMessage('Trade type must be buy or sell'),
 
+    body('nonce')
+      .isString()
+      .isLength({ min: 8, max: 128 })
+      .withMessage('Nonce must be a string between 8 and 128 characters')
+      .trim(),
+
     commonValidations.amount,
 
     body('maxSlippage')

@@ -18,6 +18,10 @@ const tradeSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  nonce: {
+    type: String,
+    required: true
+  },
   tradeType: {
     type: String,
     enum: ['buy', 'sell'],
@@ -146,6 +150,7 @@ const tradeSchema = new mongoose.Schema({
 // Compound indexes for better query performance
 tradeSchema.index({ marketId: 1, timestamp: -1 });
 tradeSchema.index({ userWalletAddress: 1, timestamp: -1 });
+tradeSchema.index({ userWalletAddress: 1, nonce: 1 }, { unique: true });
 tradeSchema.index({ marketId: 1, tokenType: 1, timestamp: -1 });
 tradeSchema.index({ status: 1, timestamp: -1 });
 tradeSchema.index({ tradeType: 1, tokenType: 1 });

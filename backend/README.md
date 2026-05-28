@@ -258,11 +258,14 @@ Authorization: Bearer <token>
   "marketId": "market_123456789",
   "tokenType": "yes",
   "tradeType": "buy",
+  "nonce": "wallet-client-unique-1716880000000",
   "amount": 100,
   "maxSlippage": 0.05,
   "walletAddress": "GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 }
 ```
+
+`nonce` must be unique per wallet for each submission. Reusing a previous nonce is rejected to prevent replayed trades.
 
 #### Get Trade History
 ```http
