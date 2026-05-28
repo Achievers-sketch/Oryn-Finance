@@ -921,6 +921,113 @@ export const liquidityPositionService = {
   },
 };
 
+// Cross-Chain Monitoring Services (#119)
+export const crossChainService = {
+  async trackTransaction(data: { txId: string; status?: string; bridgeChain?: string; amount?: number; walletAddress?: string }): Promise<any> {
+    const response = await apiClient.post(ENDPOINTS.CROSS_CHAIN_TRACK, data);
+    if (!response.success) throw new Error(response.message || 'Failed to track transaction');
+    return response.data;
+  },
+  async listTransactions(params?: { walletAddress?: string; status?: string }): Promise<any> {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => v && q.append(k, v));
+    const endpoint = q.toString() ? `${ENDPOINTS.CROSS_CHAIN_LIST}?${q}` : ENDPOINTS.CROSS_CHAIN_LIST;
+    const response = await apiClient.get(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to list transactions');
+    return response.data;
+  },
+  async getFailures(): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.CROSS_CHAIN_FAILURES);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch failures');
+    return response.data;
+  },
+  async getStats(): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.CROSS_CHAIN_STATS);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch stats');
+    return response.data;
+  },
+  async getTransaction(txId: string): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.CROSS_CHAIN_TX(txId));
+    if (!response.success) throw new Error(response.message || 'Transaction not found');
+    return response.data;
+  },
+  async recoverTransaction(txId: string): Promise<any> {
+    const response = await apiClient.post(ENDPOINTS.CROSS_CHAIN_RECOVER(txId), {});
+    if (!response.success) throw new Error(response.message || 'Recovery failed');
+    return response.data;
+  },
+};
+
+// Insurance Claim Services (#118)
+export const insuranceService = {
+  async submitClaim(data: { walletAddress: string; policyId: string; incidentType: string; description?: string; requestedAmount: number }): Promise<any> {
+    const response = await apiClient.post(ENDPOINTS.INSURANCE_CLAIMS, data);
+    if (!response.success) throw new Error(response.message || 'Failed to submit claim');
+    return response.data;
+  },
+  async listClaims(params?: { walletAddress?: string; status?: string }): Promise<any> {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => v && q.append(k, v));
+    const endpoint = q.toString() ? `${ENDPOINTS.INSURANCE_CLAIMS}?${q}` : ENDPOINTS.INSURANCE_CLAIMS;
+    const response = await apiClient.get(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to list claims');
+    return response.data;
+  },
+  async getClaim(claimId: string): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.INSURANCE_CLAIM(claimId));
+    if (!response.success) throw new Error(response.message || 'Claim not found');
+    return response.data;
+  },
+  async reviewClaim(claimId: string, data: { decision: 'approved' | 'rejected'; payoutAmount?: number; reviewNote?: string }): Promise<any> {
+    const response = await apiClient.put(ENDPOINTS.INSURANCE_CLAIM_REVIEW(claimId), data);
+    if (!response.success) throw new Error(response.message || 'Failed to review claim');
+    return response.data;
+  },
+  async processPayout(claimId: string): Promise<any> {
+    const response = await apiClient.post(ENDPOINTS.INSURANCE_CLAIM_PAYOUT(claimId), {});
+    if (!response.success) throw new Error(response.message || 'Failed to process payout');
+    return response.data;
+  },
+  async getStats(): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.INSURANCE_STATS);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch insurance stats');
+    return response.data;
+  },
+};
+
+// Risk Analytics Services (#117)
+export const riskService = {
+  async getRiskExposure(walletAddress: string): Promise<any> {
+    const response = await apiClient.get(`${ENDPOINTS.RISK_EXPOSURE}?walletAddress=${encodeURIComponent(walletAddress)}`);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch risk exposure');
+    return response.data;
+  },
+  async getDiversification(walletAddress: string): Promise<any> {
+    const response = await apiClient.get(`${ENDPOINTS.RISK_DIVERSIFICATION}?walletAddress=${encodeURIComponent(walletAddress)}`);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch diversification');
+    return response.data;
+  },
+  async getVolatility(walletAddress: string): Promise<any> {
+    const response = await apiClient.get(`${ENDPOINTS.RISK_VOLATILITY}?walletAddress=${encodeURIComponent(walletAddress)}`);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch volatility');
+    return response.data;
+  },
+};
+
+// Market Sentiment Services (#116)
+export const sentimentService = {
+  async getAggregated(): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.SENTIMENT_AGGREGATED);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch sentiment');
+    return response.data;
+  },
+  async getMarketSentiment(marketId: string): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.SENTIMENT_MARKET(marketId));
+    if (!response.success) throw new Error(response.message || 'Failed to fetch market sentiment');
+    return response.data;
+  },
+};
+
 // Combined API service object
 export const apiService = {
   health: healthService,
@@ -936,4 +1043,8 @@ export const apiService = {
   volatility: volatilityService,
   treasury: treasuryService,
   liquidityPositions: liquidityPositionService,
+  crossChain: crossChainService,
+  insurance: insuranceService,
+  risk: riskService,
+  sentiment: sentimentService,
 };

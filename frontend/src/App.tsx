@@ -24,6 +24,10 @@ import AdminDashboard from "./pages/AdminDashboard";
 import TreasuryDashboard from "./pages/TreasuryDashboard";
 import IntegrationTest from "./components/IntegrationTest";
 import { RabetWalletTest } from "./components/RabetWalletTest";
+import CrossChainMonitor from "./pages/CrossChainMonitor";
+import InsuranceClaims from "./pages/InsuranceClaims";
+import RiskAnalytics from "./pages/RiskAnalytics";
+import MarketSentiment from "./pages/MarketSentiment";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { useOffline } from "@/hooks/useOffline";
 import { I18nProvider } from "@/i18n";
@@ -91,6 +95,10 @@ const App = () => (
               <Route path="/treasury" element={<TreasuryDashboard />} />
               <Route path="/integration-test" element={<IntegrationTest />} />
               <Route path="/rabet-test" element={<RabetWalletTest />} />
+              <Route path="/cross-chain" element={<CrossChainMonitor />} />
+              <Route path="/insurance" element={<InsuranceClaims />} />
+              <Route path="/risk" element={<RiskAnalytics />} />
+              <Route path="/sentiment" element={<MarketSentiment />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
