@@ -164,6 +164,9 @@ const userSchema = new mongoose.Schema({
       min: 0
     }
   },
+  favoriteMarkets: [{
+    type: String
+  }],
   badges: [{
     type: String,
     enum: ['early-adopter', 'whale', 'oracle', 'diamond-hands', 'market-maker', 'accuracy-ace']

@@ -38,6 +38,28 @@ router.get('/reputation',
   asyncHandler(userController.getUserReputation)
 );
 
+// Watchlist / Favorite Markets
+router.get('/favorites',
+  authenticateToken,
+  asyncHandler(userController.getFavoriteMarkets)
+);
+
+router.post('/favorites',
+  authenticateToken,
+  asyncHandler(userController.addFavoriteMarket)
+);
+
+router.delete('/favorites/:marketId',
+  authenticateToken,
+  asyncHandler(userController.removeFavoriteMarket)
+);
+
+// Get user's market creation history
+router.get('/markets',
+  authenticateToken,
+  asyncHandler(userController.getUserMarkets)
+);
+
 // Get public reputation for a wallet address
 router.get('/:walletAddress/reputation',
   asyncHandler(userController.getPublicUserReputation)

@@ -474,6 +474,105 @@ class UserController {
     }
   }
 
+  // Add market to favorites
+  static async addFavoriteMarket(req, res) {
+    try {
+      const { marketId } = req.body;
+      const walletAddress = req.user.walletAddress;
+
+      if (!marketId) {
+        throw new ValidationError('Market ID is required');
+      }
+
+      const user = await User.findOne({ walletAddress });
+      if (!user) {
+        throw new NotFoundError('User not found');
+      }
+
+      if (!user.favoriteMarkets.includes(marketId)) {
+        user.favoriteMarkets.push(marketId);
+        await user.save();
+      }
+
+      logger.info('Market added to favorites', { walletAddress, marketId });
+
+      res.json({
+        success: true,
+        data: { favoriteMarkets: user.favoriteMarkets },
+        message: 'Market added to favorites'
+      });
+    } catch (error) {
+      logger.error('Add favorite market failed:', error);
+      throw error;
+    }
+  }
+
+  // Remove market from favorites
+  static async removeFavoriteMarket(req, res) {
+    try {
+      const { marketId } = req.params;
+      const walletAddress = req.user.walletAddress;
+
+      const user = await User.findOne({ walletAddress });
+      if (!user) {
+        throw new NotFoundError('User not found');
+      }
+
+      user.favoriteMarkets = user.favoriteMarkets.filter(id => id !== marketId);
+      await user.save();
+
+      logger.info('Market removed from favorites', { walletAddress, marketId });
+
+      res.json({
+        success: true,
+        data: { favoriteMarkets: user.favoriteMarkets },
+        message: 'Market removed from favorites'
+      });
+    } catch (error) {
+      logger.error('Remove favorite market failed:', error);
+      throw error;
+    }
+  }
+
+  // Get user's favorite markets
+  static async getFavoriteMarkets(req, res) {
+    try {
+      const walletAddress = req.user.walletAddress;
+      const { page = 1, limit = 20 } = req.query;
+
+      const user = await User.findOne({ walletAddress });
+      if (!user) {
+        throw new NotFoundError('User not found');
+      }
+
+      const skip = (page - 1) * limit;
+      const favoriteMarketIds = user.favoriteMarkets || [];
+
+      const [markets, total] = await Promise.all([
+        Market.find({ marketId: { $in: favoriteMarketIds } })
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(parseInt(limit))
+          .lean(),
+        favoriteMarketIds.length
+      ]);
+
+      res.json({
+        success: true,
+        data: markets,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / limit)
+        }
+      });
+    } catch (error) {
+      logger.error('Get favorite markets failed:', error);
+      throw error;
+    }
+  }
+
   // Get user's market creation history
   static async getUserMarkets(req, res) {
     try {

@@ -11,7 +11,7 @@ import { Market } from '@/data/mockData';
 import { useOffline } from '@/hooks/useOffline';
 import { useI18n } from '@/i18n';
 
-type SortOption = 'volume' | 'newest' | 'ending';
+type SortOption = 'volume' | 'newest' | 'ending' | 'liquidity' | 'momentum' | 'activity';
 
 const categories = ['All', 'Crypto', 'Sports', 'Politics', 'Entertainment', 'Technology', 'Economics', 'Other'];
 const statusFilters = ['All', 'Active', 'Resolved', 'Trending'];
@@ -142,6 +142,15 @@ export default function Markets() {
       case 'ending':
         filtered.sort((a, b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime());
         break;
+      case 'liquidity':
+        filtered.sort((a, b) => b.liquidity - a.liquidity);
+        break;
+      case 'momentum':
+        filtered.sort((a, b) => (b.volume * 0.4 + b.traders * 0.3 + (b as any).momentumScore || 0) - (a.volume * 0.4 + a.traders * 0.3 + (a as any).momentumScore || 0));
+        break;
+      case 'activity':
+        filtered.sort((a, b) => (b.traders - a.traders) || (b.volume - a.volume));
+        break;
     }
     return filtered;
   }, [markets, searchQuery, sortBy]);
@@ -235,7 +244,7 @@ export default function Markets() {
             <div className="flex items-center gap-2">
               <SortAsc className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">{t('markets.sort')}</span>
-              {(['volume', 'newest', 'ending'] as SortOption[]).map((option) => (
+              {(['volume', 'newest', 'ending', 'liquidity', 'momentum', 'activity'] as SortOption[]).map((option) => (
                 <Button
                   key={option}
                   variant="ghost"

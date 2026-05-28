@@ -200,6 +200,69 @@ export const transactionService = {
 
 // Market Services
 export const marketService = {
+  // Get markets sorted by liquidity
+  async getMarketsByLiquidity(filters?: { category?: string; page?: number; limit?: number }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+    const endpoint = queryParams.toString()
+      ? `/markets/sort/liquidity?${queryParams}`
+      : '/markets/sort/liquidity';
+    const response = await apiClient.get<any>(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch markets by liquidity');
+    return response.data;
+  },
+
+  // Get markets sorted by momentum
+  async getMarketsByMomentum(filters?: { category?: string; timeframe?: string; page?: number; limit?: number }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+    const endpoint = queryParams.toString()
+      ? `/markets/sort/momentum?${queryParams}`
+      : '/markets/sort/momentum';
+    const response = await apiClient.get<any>(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch markets by momentum');
+    return response.data;
+  },
+
+  // Get markets sorted by activity
+  async getMarketsByActivity(filters?: { category?: string; page?: number; limit?: number }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+    const endpoint = queryParams.toString()
+      ? `/markets/sort/activity?${queryParams}`
+      : '/markets/sort/activity';
+    const response = await apiClient.get<any>(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch markets by activity');
+    return response.data;
+  },
+
+  // Get markets with enhanced trending algorithm
+  async getTrendingMarketsV2(filters?: { limit?: number; timeframe?: string }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+    const endpoint = queryParams.toString()
+      ? `/markets/trending/v2?${queryParams}`
+      : '/markets/trending/v2';
+    const response = await apiClient.get<any>(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch trending markets v2');
+    return response.data;
+  },
   // Get all markets
   async getMarkets(filters?: {
     category?: string;
@@ -306,6 +369,45 @@ export const userService = {
     const response = await apiClient.get(ENDPOINTS.USER_REPUTATION_BY_ADDRESS(address));
     if (!response.success) {
       throw new Error(response.message || 'Failed to fetch user reputation');
+    }
+    return response.data;
+  },
+
+  // Watchlist / Favorite Markets
+  async getFavoriteMarkets(authToken: string, filters?: { page?: number; limit?: number }): Promise<any> {
+    apiClient.setAuthToken(authToken);
+    const queryParams = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, String(value));
+        }
+      });
+    }
+    const endpoint = queryParams.toString()
+      ? `/users/favorites?${queryParams}`
+      : '/users/favorites';
+    const response = await apiClient.get(endpoint);
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to fetch favorite markets');
+    }
+    return response.data;
+  },
+
+  async addFavoriteMarket(authToken: string, marketId: string): Promise<any> {
+    apiClient.setAuthToken(authToken);
+    const response = await apiClient.post('/users/favorites', { marketId });
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to add favorite market');
+    }
+    return response.data;
+  },
+
+  async removeFavoriteMarket(authToken: string, marketId: string): Promise<any> {
+    apiClient.setAuthToken(authToken);
+    const response = await apiClient.delete(`/users/favorites/${marketId}`);
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to remove favorite market');
     }
     return response.data;
   },

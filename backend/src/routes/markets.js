@@ -38,6 +38,28 @@ router.get('/stats',
   asyncHandler(marketController.getMarketStats)
 );
 
+// Advanced sorting endpoints
+router.get('/sort/liquidity',
+  optionalAuth,
+  asyncHandler(marketController.getMarketsByLiquidity)
+);
+
+router.get('/sort/momentum',
+  optionalAuth,
+  asyncHandler(marketController.getMarketsByMomentum)
+);
+
+router.get('/sort/activity',
+  optionalAuth,
+  asyncHandler(marketController.getMarketsByActivity)
+);
+
+// Enhanced trending with momentum algorithm
+router.get('/trending/v2',
+  optionalAuth,
+  asyncHandler(marketController.getTrendingMarketsV2)
+);
+
 const resolutionController = require('../controllers/resolutionController');
 
 // Get market resolution transparency data

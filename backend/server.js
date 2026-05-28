@@ -27,6 +27,7 @@ const adminRoutes = require('./src/routes/admin');
 const oracleRoutes = require('./src/routes/oracle');
 const liquidityRoutes = require('./src/routes/liquidity');
 const pushNotificationRoutes = require('./src/routes/pushNotifications');
+const messageRoutes = require('./src/routes/messages');
 
 // Import services
 const backgroundJobs = require('./src/services/backgroundJobs');
@@ -34,6 +35,7 @@ const websocketHandler = require('./src/services/websocketHandler');
 const contractEventIndexer = require('./src/services/contractEventIndexer');
 const transactionRetryQueue = require('./src/services/transactionRetryQueue'); // Issue #23
 const pushNotificationService = require('./src/services/pushNotificationService');
+const encryptionService = require('./src/services/encryptionService');
 
 class OrynBackendServer {
   constructor() {
@@ -55,6 +57,9 @@ class OrynBackendServer {
 
       // Initialize push notification VAPID keys
       pushNotificationService.initVapid();
+
+      // Initialize encryption service
+      encryptionService.initialize();
 
       // Connect to database (optional for now)
       try {
@@ -184,6 +189,9 @@ class OrynBackendServer {
 
     // Push notification routes
     this.app.use('/api/push', pushNotificationRoutes);
+
+    // Encrypted messaging routes
+    this.app.use('/api/messages', messageRoutes);
 
     // Protected routes
     this.app.use('/api/trades', tradeRoutes);
