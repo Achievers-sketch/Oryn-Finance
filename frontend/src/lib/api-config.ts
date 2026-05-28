@@ -76,6 +76,35 @@ export const ENDPOINTS = {
   LIQUIDITY_POOL: (marketId: string) => `/liquidity/pools/${marketId}`,
   LIQUIDITY_DEPTH: (marketId: string) => `/liquidity/pools/${marketId}/depth`,
 
+  // Markets - Extended
+  MARKET_BY_REGION: (region: string) => `/markets/region/${region}`,
+  MARKET_RECOMMENDED: '/markets/recommended',
+  MARKET_REGION_STATS: '/markets/region-stats',
+
+  // Volatility
+  VOLATILITY_MARKETS: '/volatility/markets',
+  VOLATILITY_MARKET: (id: string) => `/volatility/market/${id}`,
+  VOLATILITY_HISTORY: (id: string) => `/volatility/market/${id}/history`,
+  VOLATILITY_CALCULATE: (id: string) => `/volatility/market/${id}/calculate`,
+
+  // Treasury
+  TREASURY_OVERVIEW: '/treasury/overview',
+  TREASURY_SUMMARY: '/treasury/summary',
+  TREASURY_INFLOWS: '/treasury/inflows',
+  TREASURY_OUTFLOWS: '/treasury/outflows',
+  TREASURY_GOV_ACTIONS: '/treasury/governance-actions',
+  TREASURY_RECORD_INFLOW: '/treasury/inflows',
+  TREASURY_RECORD_OUTFLOW: '/treasury/distributions',
+  TREASURY_RECORD_GOV_ACTION: '/treasury/governance-actions',
+
+  // Liquidity Positions
+  LIQUIDITY_POSITIONS: '/liquidity-positions/positions',
+  LIQUIDITY_POSITION: (marketId: string) => `/liquidity-positions/positions/${marketId}`,
+  LIQUIDITY_METRICS: '/liquidity-positions/metrics',
+  LIQUIDITY_CREATE_POSITION: '/liquidity-positions/positions',
+  LIQUIDITY_RECORD_FEE: (positionId: string) => `/liquidity-positions/positions/${positionId}/fees`,
+  LIQUIDITY_CALCULATE_IL: (positionId: string) => `/liquidity-positions/positions/${positionId}/calculate-il`,
+
   // Admin
   ADMIN_DASHBOARD: '/admin/dashboard',
   ADMIN_USERS: '/admin/users',

@@ -2,6 +2,7 @@ export interface Market {
   id: string;
   question: string;
   category: 'Crypto' | 'Sports' | 'Politics' | 'Entertainment' | 'Technology' | 'Economics' | 'Other';
+  region?: 'global' | 'north_america' | 'south_america' | 'europe' | 'asia' | 'africa' | 'oceania' | 'middle_east';
   yesPrice: number;
   noPrice: number;
   volume: number;
@@ -14,6 +15,12 @@ export interface Market {
   resolutionSource: string;
   description?: string;
   tags?: string[];
+  volatility?: {
+    score: number;
+    badge: 'low' | 'moderate' | 'high' | 'extreme';
+    historicalFluctuation?: number;
+    lastCalculated?: string;
+  };
 }
 
 export interface Trade {

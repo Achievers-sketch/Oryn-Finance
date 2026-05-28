@@ -10,6 +10,7 @@ class MarketController {
   static async getAllMarkets(req, res) {
     const {
       category,
+      region,
       status = 'active',
       sortBy = 'createdAt',
       sortOrder = 'desc',
@@ -22,6 +23,7 @@ class MarketController {
     const filter = {};
     
     if (category) filter.category = category;
+    if (region) filter.region = region;
     if (status) filter.status = status;
     
     if (tags) {
@@ -730,6 +732,94 @@ class MarketController {
     res.json({
       success: true,
       data: position
+    });
+  }
+
+  // Get markets by region
+  static async getMarketsByRegion(req, res) {
+    const { region } = req.params;
+    const { limit = 20, page = 1 } = req.query;
+
+    const skip = (page - 1) * limit;
+
+    const [markets, total] = await Promise.all([
+      Market.find({
+        region,
+        status: 'active',
+        expiresAt: { $gt: new Date() }
+      })
+        .sort({ totalVolume: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      Market.countDocuments({
+        region,
+        status: 'active',
+        expiresAt: { $gt: new Date() }
+      })
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        markets,
+        region,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(total / limit),
+          totalItems: total
+        }
+      }
+    });
+  }
+
+  // Get recommended markets for a user based on region and category
+  static async getRecommendedMarkets(req, res) {
+    const { limit = 10, region: preferredRegion } = req.query;
+
+    const userRegion = preferredRegion || req.user?.userData?.region || 'global';
+
+    const markets = await Market.find({
+      status: 'active',
+      expiresAt: { $gt: new Date() },
+      $or: [
+        { region: userRegion },
+        { region: 'global' }
+      ]
+    })
+      .sort({ totalVolume: -1, 'statistics.uniqueTraders': -1 })
+      .limit(parseInt(limit))
+      .lean();
+
+    res.json({
+      success: true,
+      data: {
+        markets,
+        region: userRegion,
+        recommendationType: 'region_based'
+      }
+    });
+  }
+
+  // Get region statistics
+  static async getRegionStats(req, res) {
+    const regionStats = await Market.aggregate([
+      { $match: { status: 'active' } },
+      {
+        $group: {
+          _id: '$region',
+          count: { $sum: 1 },
+          totalVolume: { $sum: '$totalVolume' },
+          totalTrades: { $sum: '$totalTrades' },
+          avgLiquidity: { $avg: '$initialLiquidity' }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+
+    res.json({
+      success: true,
+      data: regionStats
     });
   }
 }

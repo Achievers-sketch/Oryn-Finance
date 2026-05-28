@@ -21,6 +21,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import TradeDetail from "./pages/TradeDetail";
 import LiquidityPools from "./pages/LiquidityPools";
 import AdminDashboard from "./pages/AdminDashboard";
+import TreasuryDashboard from "./pages/TreasuryDashboard";
 import IntegrationTest from "./components/IntegrationTest";
 import { RabetWalletTest } from "./components/RabetWalletTest";
 import { OfflineBanner } from "@/components/OfflineBanner";
@@ -50,6 +51,7 @@ function AppShell() {
           <Route path="/governance" element={<Governance />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/about" element={<About />} />
+          <Route path="/treasury" element={<TreasuryDashboard />} />
           <Route path="/integration-test" element={<IntegrationTest />} />
           <Route path="/rabet-test" element={<RabetWalletTest />} />
           <Route path="*" element={<NotFound />} />
@@ -84,6 +86,7 @@ const App = () => (
               <Route path="/governance" element={<Governance />} />
               <Route path="/how-it-works" element={<HowItWorks />} />
               <Route path="/about" element={<About />} />
+              <Route path="/treasury" element={<TreasuryDashboard />} />
               <Route path="/integration-test" element={<IntegrationTest />} />
               <Route path="/rabet-test" element={<RabetWalletTest />} />
               <Route path="*" element={<NotFound />} />

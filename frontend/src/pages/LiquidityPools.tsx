@@ -37,6 +37,10 @@ interface Pool {
   tvl: number;
   utilizationPct: number;
   expiresAt: string;
+  volatility?: {
+    score: number;
+    badge: 'low' | 'moderate' | 'high' | 'extreme';
+  };
 }
 
 interface DepthPoint {
@@ -248,6 +252,7 @@ export default function LiquidityPools() {
                   >
                     Utilization <SortIcon field="utilizationPct" />
                   </th>
+                  <th className="text-center px-4 py-3 font-medium">Volatility</th>
                   <th className="text-center px-4 py-3 font-medium">Category</th>
                   <th className="px-4 py-3" />
                 </tr>
@@ -255,14 +260,14 @@ export default function LiquidityPools() {
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={7} className="text-center py-12 text-muted-foreground">
+                    <td colSpan={8} className="text-center py-12 text-muted-foreground">
                       Loading pools...
                     </td>
                   </tr>
                 )}
                 {!loading && filtered.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="text-center py-12 text-muted-foreground">
+                    <td colSpan={8} className="text-center py-12 text-muted-foreground">
                       No pools found.
                     </td>
                   </tr>
@@ -294,6 +299,20 @@ export default function LiquidityPools() {
                           {pct(pool.utilizationPct)}
                         </span>
                       </div>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {pool.volatility ? (
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          pool.volatility.badge === 'low' ? 'bg-green-500/10 text-green-400' :
+                          pool.volatility.badge === 'moderate' ? 'bg-yellow-500/10 text-yellow-400' :
+                          pool.volatility.badge === 'high' ? 'bg-orange-500/10 text-orange-400' :
+                          'bg-red-500/10 text-red-400'
+                        }`}>
+                          {pool.volatility.badge}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <Badge variant="outline" className="capitalize text-xs">

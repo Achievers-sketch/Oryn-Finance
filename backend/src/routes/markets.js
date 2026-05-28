@@ -33,6 +33,23 @@ router.get('/category/:category',
   asyncHandler(marketController.getMarketsByCategory)
 );
 
+// Get markets by region
+router.get('/region/:region',
+  optionalAuth,
+  asyncHandler(marketController.getMarketsByRegion)
+);
+
+// Get recommended markets
+router.get('/recommended',
+  optionalAuth,
+  asyncHandler(marketController.getRecommendedMarkets)
+);
+
+// Get region statistics
+router.get('/region-stats',
+  asyncHandler(marketController.getRegionStats)
+);
+
 // Get market statistics
 router.get('/stats',
   asyncHandler(marketController.getMarketStats)

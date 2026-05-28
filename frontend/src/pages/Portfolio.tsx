@@ -335,6 +335,14 @@ export default function Portfolio() {
     unrealizedPnL: 0,
     netPnL: 0
   });
+  const [lpPositions, setLpPositions] = useState<any[]>([]);
+  const [lpMetrics, setLpMetrics] = useState({
+    totalPositions: 0,
+    totalDeposited: 0,
+    totalFeesEarned: 0,
+    totalImpermanentLoss: 0,
+    netReturn: 0
+  });
   const [loading, setLoading] = useState(false);
   const [tradeHistoryLoading, setTradeHistoryLoading] = useState(false);
   const [isExporting, setIsExporting] = useState<ExportFormat | null>(null);
@@ -435,10 +443,27 @@ export default function Portfolio() {
     }
   };
 
+  const fetchLpData = async () => {
+    if (!publicKey || !isConnected) return;
+    try {
+      const [positions, metrics] = await Promise.all([
+        apiService.liquidityPositions.getUserPositions(publicKey),
+        apiService.liquidityPositions.getPortfolioMetrics(publicKey),
+      ]);
+      setLpPositions(positions || []);
+      if (metrics) {
+        setLpMetrics(metrics);
+      }
+    } catch (err) {
+      console.error('Error fetching LP data:', err);
+    }
+  };
+
   const fetchPortfolioData = async (filters = appliedTradeFilters) => {
     await Promise.all([
       fetchSummaryData(),
       fetchTradeHistoryData(filters),
+      fetchLpData(),
     ]);
   };
 
@@ -654,7 +679,16 @@ export default function Portfolio() {
             <p className="text-2xl font-bold">{formatCurrency(totalInvested)}</p>
             <p className="text-xs text-muted-foreground">Total Invested</p>
           </div>
-        </div>
+          <div className="p-4 rounded-lg bg-muted/30 text-center">
+            <RefreshCw className="w-5 h-5 mx-auto mb-2 text-primary" />
+            <p className="text-2xl font-bold">{lpMetrics.totalPositions}</p>
+            <p className="text-xs text-muted-foreground">LP Positions</p>
+          </div>
+          <div className="p-4 rounded-lg bg-muted/30 text-center">
+            <TrendingUp className="w-5 h-5 mx-auto mb-2 text-success" />
+            <p className="text-2xl font-bold">{formatCurrency(lpMetrics.netReturn)}</p>
+            <p className="text-xs text-muted-foreground">LP Net Return</p>
+          </div>
 
         <MagicCard className="glass-card p-6 mb-8" gradientColor="#262626">
           <h2 className="text-xl font-semibold mb-6">Active Positions</h2>
@@ -706,6 +740,48 @@ export default function Portfolio() {
               );
             })}
           </div>
+        </MagicCard>
+
+        <MagicCard className="glass-card p-6 mb-8" gradientColor="#262626">
+          <h2 className="text-xl font-semibold mb-6">Liquidity Positions</h2>
+          {lpPositions.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <RefreshCw className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No active liquidity positions</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {lpPositions.map((position: any) => (
+                <Link
+                  key={position.positionId || position._id}
+                  to={`/market/${position.marketId}`}
+                  className="block p-4 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <p className="font-medium line-clamp-1 mb-1">{position.marketQuestion || position.marketId}</p>
+                      <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+                        <span>Deposited: {formatCurrency(position.depositedYesAmount + position.depositedNoAmount)}</span>
+                        <span>Fees: {formatCurrency(position.totalFeesEarned)}</span>
+                        {position.impermanentLoss !== 0 && (
+                          <span className={position.impermanentLoss > 0 ? 'text-destructive' : 'text-success'}>
+                            IL: {formatCurrency(position.impermanentLoss)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 text-right">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Share of Pool</p>
+                        <p className="font-semibold">{(position.shareOfPool * 100).toFixed(2)}%</p>
+                      </div>
+                      <ArrowRight className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </MagicCard>
 
         <MagicCard className="glass-card p-6" gradientColor="#262626">

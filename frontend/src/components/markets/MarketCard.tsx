@@ -37,6 +37,24 @@ const categoryColors: Record<string, string> = {
   Entertainment: 'bg-warning/20 text-warning border-warning/30',
 };
 
+const volatilityColors: Record<string, string> = {
+  low: 'bg-green-500/10 text-green-400 border-green-500/30',
+  moderate: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
+  high: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
+  extreme: 'bg-red-500/10 text-red-400 border-red-500/30',
+};
+
+const regionLabels: Record<string, string> = {
+  global: 'Global',
+  north_america: 'N. America',
+  south_america: 'S. America',
+  europe: 'Europe',
+  asia: 'Asia',
+  africa: 'Africa',
+  oceania: 'Oceania',
+  middle_east: 'M. East',
+};
+
 export function MarketCard({ market, featured = false }: MarketCardProps) {
   const yesPercent = Math.round(market.yesPrice * 100);
   const noPercent = Math.round(market.noPrice * 100);
@@ -60,6 +78,19 @@ export function MarketCard({ market, featured = false }: MarketCardProps) {
               )}>
                 {market.category}
               </span>
+              {market.region && (
+                <span className="px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border border-blue-500/20 bg-blue-500/10 text-blue-400">
+                  {regionLabels[market.region] || market.region}
+                </span>
+              )}
+              {market.volatility && (
+                <span className={cn(
+                  "px-2 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider border",
+                  volatilityColors[market.volatility.badge]
+                )}>
+                  {market.volatility.badge}
+                </span>
+              )}
               <CountdownTimer expiryDate={market.expirationDate} />
             </div>
             {market.status === 'Trending' && (

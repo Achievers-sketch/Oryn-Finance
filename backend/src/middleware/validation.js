@@ -71,6 +71,12 @@ const marketValidations = {
       .isString()
       .isIn(['sports', 'politics', 'crypto', 'entertainment', 'economics', 'technology', 'other'])
       .withMessage('Invalid category'),
+
+    body('region')
+      .optional()
+      .isString()
+      .isIn(['global', 'north_america', 'south_america', 'europe', 'asia', 'africa', 'oceania', 'middle_east'])
+      .withMessage('Invalid region'),
     
     body('expiresAt')
       .isISO8601()
@@ -268,6 +274,11 @@ const queryValidations = {
       .optional()
       .isIn(['sports', 'politics', 'crypto', 'entertainment', 'economics', 'technology', 'other'])
       .withMessage('Invalid category'),
+
+    query('region')
+      .optional()
+      .isIn(['global', 'north_america', 'south_america', 'europe', 'asia', 'africa', 'oceania', 'middle_east'])
+      .withMessage('Invalid region'),
     
     query('status')
       .optional()

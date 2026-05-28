@@ -27,6 +27,9 @@ const adminRoutes = require('./src/routes/admin');
 const oracleRoutes = require('./src/routes/oracle');
 const liquidityRoutes = require('./src/routes/liquidity');
 const pushNotificationRoutes = require('./src/routes/pushNotifications');
+const volatilityRoutes = require('./src/routes/volatility');
+const treasuryRoutes = require('./src/routes/treasury');
+const liquidityPositionRoutes = require('./src/routes/liquidityPositions');
 
 // Import services
 const backgroundJobs = require('./src/services/backgroundJobs');
@@ -184,6 +187,15 @@ class OrynBackendServer {
 
     // Push notification routes
     this.app.use('/api/push', pushNotificationRoutes);
+
+    // Volatility routes
+    this.app.use('/api/volatility', volatilityRoutes);
+
+    // Treasury routes
+    this.app.use('/api/treasury', treasuryRoutes);
+
+    // Liquidity position routes
+    this.app.use('/api/liquidity-positions', liquidityPositionRoutes);
 
     // Protected routes
     this.app.use('/api/trades', tradeRoutes);

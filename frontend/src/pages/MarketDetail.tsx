@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, Users, Calendar, Clock, ExternalLink, Info, Loader2, AlertTriangle, WifiOff } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { ArrowLeft, TrendingUp, Users, Calendar, Clock, ExternalLink, Info, Loader2, AlertTriangle, WifiOff, Radio } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -281,9 +282,26 @@ export default function MarketDetail() {
             {/* Market Header */}
             <div className="glass-card p-6">
               <div className="flex items-start justify-between mb-4">
-                <Badge variant="outline" className="text-primary border-primary/30">
-                  {currentMarket.category}
-                </Badge>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline" className="text-primary border-primary/30">
+                    {currentMarket.category}
+                  </Badge>
+                  {currentMarket.region && (
+                    <Badge variant="outline" className="text-blue-400 border-blue-500/30 bg-blue-500/10">
+                      {currentMarket.region.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                    </Badge>
+                  )}
+                  {currentMarket.volatility && (
+                    <Badge variant="outline" className={
+                      currentMarket.volatility.badge === 'low' ? 'text-green-400 border-green-500/30 bg-green-500/10' :
+                      currentMarket.volatility.badge === 'moderate' ? 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10' :
+                      currentMarket.volatility.badge === 'high' ? 'text-orange-400 border-orange-500/30 bg-orange-500/10' :
+                      'text-red-400 border-red-500/30 bg-red-500/10'
+                    }>
+                      Volatility: {currentMarket.volatility.badge}
+                    </Badge>
+                  )}
+                </div>
                 {currentMarket.status === 'Trending' && (
                   <Badge className="bg-gradient-to-r from-primary to-secondary">
                     <TrendingUp className="w-3 h-3 mr-1" />
@@ -519,6 +537,32 @@ export default function MarketDetail() {
                   </span>
                   <span className="font-medium">{currentMarket.traders}</span>
                 </div>
+                {currentMarket.region && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground flex items-center gap-2">
+                      <Info className="w-4 h-4" />
+                      Region
+                    </span>
+                    <span className="font-medium capitalize">{currentMarket.region.replace('_', ' ')}</span>
+                  </div>
+                )}
+                {currentMarket.volatility && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4" />
+                      Volatility
+                    </span>
+                    <span className={cn(
+                      "font-medium capitalize",
+                      currentMarket.volatility.badge === 'low' && 'text-green-400',
+                      currentMarket.volatility.badge === 'moderate' && 'text-yellow-400',
+                      currentMarket.volatility.badge === 'high' && 'text-orange-400',
+                      currentMarket.volatility.badge === 'extreme' && 'text-red-400'
+                    )}>
+                      {currentMarket.volatility.badge} ({currentMarket.volatility.score})
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground flex items-center gap-2">
                     <Calendar className="w-4 h-4" />

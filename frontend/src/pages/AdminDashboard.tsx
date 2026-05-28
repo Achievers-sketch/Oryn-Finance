@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Shield, Users, BarChart3, Activity, AlertTriangle,
   RefreshCw, Search, CheckCircle, XCircle, Settings,
-  TrendingUp, DollarSign, Clock, ChevronDown, ChevronUp
+  TrendingUp, DollarSign, Clock, ChevronDown, ChevronUp, Wallet
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -193,6 +194,7 @@ function AdminContent({ authToken }: { authToken: string }) {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="treasury">Treasury</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="trades">Pending Trades</TabsTrigger>
             <TabsTrigger value="config">Config</TabsTrigger>
@@ -289,6 +291,21 @@ function AdminContent({ authToken }: { authToken: string }) {
                 </MagicCard>
               </>
             )}
+          </TabsContent>
+
+          {/* ── Treasury ──────────────────────────────────────────────────── */}
+          <TabsContent value="treasury">
+            <div className="text-center py-12">
+              <DollarSign className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-semibold mb-2">Treasury Management</h3>
+              <p className="text-muted-foreground mb-6">View detailed treasury overview, inflows, outflows, and governance actions.</p>
+              <Link to="/treasury">
+                <Button>
+                  <Wallet className="w-4 h-4 mr-2" />
+                  Open Treasury Dashboard
+                </Button>
+              </Link>
+            </div>
           </TabsContent>
 
           {/* ── Users ────────────────────────────────────────────────────── */}

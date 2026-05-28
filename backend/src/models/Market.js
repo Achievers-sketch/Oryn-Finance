@@ -19,6 +19,12 @@ const marketSchema = new mongoose.Schema({
     enum: ['sports', 'politics', 'crypto', 'entertainment', 'economics', 'technology', 'other'],
     index: true
   },
+  region: {
+    type: String,
+    enum: ['global', 'north_america', 'south_america', 'europe', 'asia', 'africa', 'oceania', 'middle_east'],
+    default: 'global',
+    index: true
+  },
   creatorWalletAddress: {
     type: String,
     required: true,
@@ -173,7 +179,34 @@ const marketSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
     index: true
-  }
+  },
+  volatility: {
+    score: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100
+    },
+    historicalFluctuation: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    badge: {
+      type: String,
+      enum: ['low', 'moderate', 'high', 'extreme'],
+      default: 'low'
+    },
+    lastCalculated: {
+      type: Date
+    }
+  },
+  volatilityHistory: [{
+    timestamp: Date,
+    score: Number,
+    yesPrice: Number,
+    noPrice: Number
+  }]
 }, {
   timestamps: true,
   collection: 'markets'
@@ -186,6 +219,10 @@ marketSchema.index({ expiresAt: 1 });
 marketSchema.index({ totalVolume: -1 });
 marketSchema.index({ 'statistics.uniqueTraders': -1 });
 marketSchema.index({ isFeatured: 1, status: 1 });
+marketSchema.index({ region: 1, status: 1 });
+marketSchema.index({ region: 1, category: 1, status: 1 });
+marketSchema.index({ 'volatility.badge': 1 });
+marketSchema.index({ 'volatility.score': -1 });
 
 // Virtual fields
 marketSchema.virtual('isExpired').get(function() {

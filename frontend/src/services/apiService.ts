@@ -663,6 +663,154 @@ export const adminService = {
   },
 };
 
+// Volatility Services
+export const volatilityService = {
+  async getVolatileMarkets(params?: { limit?: number; badge?: string; sortBy?: string; sortOrder?: string }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+    const endpoint = queryParams.toString() ? `${ENDPOINTS.VOLATILITY_MARKETS}?${queryParams}` : ENDPOINTS.VOLATILITY_MARKETS;
+    const response = await apiClient.get(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch volatility markets');
+    return response.data;
+  },
+
+  async getMarketVolatility(id: string): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.VOLATILITY_MARKET(id));
+    if (!response.success) throw new Error(response.message || 'Failed to fetch volatility');
+    return response.data;
+  },
+
+  async getVolatilityHistory(id: string, limit?: number): Promise<any> {
+    const endpoint = limit ? `${ENDPOINTS.VOLATILITY_HISTORY(id)}?limit=${limit}` : ENDPOINTS.VOLATILITY_HISTORY(id);
+    const response = await apiClient.get(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch volatility history');
+    return response.data;
+  },
+
+  async calculateVolatility(id: string, authToken: string): Promise<any> {
+    apiClient.setAuthToken(authToken);
+    const response = await apiClient.post(ENDPOINTS.VOLATILITY_CALCULATE(id));
+    if (!response.success) throw new Error(response.message || 'Failed to calculate volatility');
+    return response.data;
+  },
+};
+
+// Treasury Services
+export const treasuryService = {
+  async getOverview(): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.TREASURY_OVERVIEW);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch treasury overview');
+    return response.data;
+  },
+
+  async getSummary(): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.TREASURY_SUMMARY);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch treasury summary');
+    return response.data;
+  },
+
+  async getInflows(params?: { limit?: number; type?: string }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+    const endpoint = queryParams.toString() ? `${ENDPOINTS.TREASURY_INFLOWS}?${queryParams}` : ENDPOINTS.TREASURY_INFLOWS;
+    const response = await apiClient.get(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch inflows');
+    return response.data;
+  },
+
+  async getOutflows(params?: { limit?: number; type?: string }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+    const endpoint = queryParams.toString() ? `${ENDPOINTS.TREASURY_OUTFLOWS}?${queryParams}` : ENDPOINTS.TREASURY_OUTFLOWS;
+    const response = await apiClient.get(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch outflows');
+    return response.data;
+  },
+
+  async getGovernanceActions(params?: { limit?: number; status?: string }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+    const endpoint = queryParams.toString() ? `${ENDPOINTS.TREASURY_GOV_ACTIONS}?${queryParams}` : ENDPOINTS.TREASURY_GOV_ACTIONS;
+    const response = await apiClient.get(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch governance actions');
+    return response.data;
+  },
+};
+
+// Liquidity Position Services
+export const liquidityPositionService = {
+  async getUserPositions(authToken: string, params?: { status?: string }): Promise<any> {
+    apiClient.setAuthToken(authToken);
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+    const endpoint = queryParams.toString() ? `${ENDPOINTS.LIQUIDITY_POSITIONS}?${queryParams}` : ENDPOINTS.LIQUIDITY_POSITIONS;
+    const response = await apiClient.get(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch LP positions');
+    return response.data;
+  },
+
+  async getMarketPosition(authToken: string, marketId: string): Promise<any> {
+    apiClient.setAuthToken(authToken);
+    const response = await apiClient.get(ENDPOINTS.LIQUIDITY_POSITION(marketId));
+    if (!response.success) throw new Error(response.message || 'Failed to fetch LP position');
+    return response.data;
+  },
+
+  async getPortfolioMetrics(authToken: string): Promise<any> {
+    apiClient.setAuthToken(authToken);
+    const response = await apiClient.get(ENDPOINTS.LIQUIDITY_METRICS);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch LP metrics');
+    return response.data;
+  },
+
+  async createPosition(authToken: string, data: {
+    marketId: string;
+    depositedYesAmount: number;
+    depositedNoAmount: number;
+    lpTokens?: number;
+    shareOfPool?: number;
+  }): Promise<any> {
+    apiClient.setAuthToken(authToken);
+    const response = await apiClient.post(ENDPOINTS.LIQUIDITY_CREATE_POSITION, data);
+    if (!response.success) throw new Error(response.message || 'Failed to create LP position');
+    return response.data;
+  },
+
+  async recordFeeEarned(authToken: string, positionId: string, amount: number, source?: string): Promise<any> {
+    apiClient.setAuthToken(authToken);
+    const response = await apiClient.post(ENDPOINTS.LIQUIDITY_RECORD_FEE(positionId), { amount, source });
+    if (!response.success) throw new Error(response.message || 'Failed to record fee');
+    return response.data;
+  },
+
+  async calculateImpermanentLoss(authToken: string, positionId: string): Promise<any> {
+    apiClient.setAuthToken(authToken);
+    const response = await apiClient.post(ENDPOINTS.LIQUIDITY_CALCULATE_IL(positionId));
+    if (!response.success) throw new Error(response.message || 'Failed to calculate IL');
+    return response.data;
+  },
+};
+
 // Combined API service object
 export const apiService = {
   health: healthService,
@@ -675,4 +823,7 @@ export const apiService = {
   analytics: analyticsService,
   liquidity: liquidityService,
   admin: adminService,
+  volatility: volatilityService,
+  treasury: treasuryService,
+  liquidityPositions: liquidityPositionService,
 };
