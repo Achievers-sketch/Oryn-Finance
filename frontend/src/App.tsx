@@ -29,6 +29,7 @@ import InsuranceClaims from "./pages/InsuranceClaims";
 import RiskAnalytics from "./pages/RiskAnalytics";
 import MarketSentiment from "./pages/MarketSentiment";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { useOffline } from "@/hooks/useOffline";
 import { I18nProvider } from "@/i18n";
 
@@ -39,11 +40,14 @@ function AppShell() {
   return (
     <>
       {isOffline && <OfflineBanner />}
+      <PWAInstallPrompt />
       <Toaster />
       <Sonner />
       <HotToaster />
       <SmoothScroll />
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <BrowserRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/landingpage" element={<LandingPage />} />
@@ -72,36 +76,38 @@ const App = () => (
       <WalletProvider>
         <WebSocketProvider>
           <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <HotToaster />
-          <SmoothScroll />
-          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/landingpage" element={<LandingPage />} />
-              <Route path="/markets" element={<Markets />} />
-              <Route path="/market/:id" element={<MarketDetail />} />
-              <Route path="/create" element={<CreateMarket />} />
-              <Route path="/leaderboard" element={<Leaderboard />} />
-              <Route path="/portfolio" element={<Portfolio />} />
-              <Route path="/trade/:tradeId" element={<TradeDetail />} />
-              <Route path="/liquidity" element={<LiquidityPools />} />
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/governance" element={<Governance />} />
-              <Route path="/how-it-works" element={<HowItWorks />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/treasury" element={<TreasuryDashboard />} />
-              <Route path="/integration-test" element={<IntegrationTest />} />
-              <Route path="/rabet-test" element={<RabetWalletTest />} />
-              <Route path="/cross-chain" element={<CrossChainMonitor />} />
-              <Route path="/insurance" element={<InsuranceClaims />} />
-              <Route path="/risk" element={<RiskAnalytics />} />
-              <Route path="/sentiment" element={<MarketSentiment />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
+            <Toaster />
+            <Sonner />
+            <HotToaster />
+            <SmoothScroll />
+            <BrowserRouter
+              future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+            >
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/landingpage" element={<LandingPage />} />
+                <Route path="/markets" element={<Markets />} />
+                <Route path="/market/:id" element={<MarketDetail />} />
+                <Route path="/create" element={<CreateMarket />} />
+                <Route path="/leaderboard" element={<Leaderboard />} />
+                <Route path="/portfolio" element={<Portfolio />} />
+                <Route path="/trade/:tradeId" element={<TradeDetail />} />
+                <Route path="/liquidity" element={<LiquidityPools />} />
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/analytics" element={<Analytics />} />
+                <Route path="/governance" element={<Governance />} />
+                <Route path="/how-it-works" element={<HowItWorks />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/treasury" element={<TreasuryDashboard />} />
+                <Route path="/integration-test" element={<IntegrationTest />} />
+                <Route path="/rabet-test" element={<RabetWalletTest />} />
+                <Route path="/cross-chain" element={<CrossChainMonitor />} />
+                <Route path="/insurance" element={<InsuranceClaims />} />
+                <Route path="/risk" element={<RiskAnalytics />} />
+                <Route path="/sentiment" element={<MarketSentiment />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
           </TooltipProvider>
         </WebSocketProvider>
       </WalletProvider>
