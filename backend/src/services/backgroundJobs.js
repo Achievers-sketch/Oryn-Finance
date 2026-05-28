@@ -61,10 +61,25 @@ class BackgroundJobs {
       await this.updateUserReputationScores();
     }, { scheduled: false }));
 
+    // Auto-refresh active markets cache every 60 seconds (Issue #96)
+    this.jobs.set('cacheWarming', cron.schedule('*/60 * * * * *', async () => {
+      await this.warmCache();
+    }, { scheduled: false }));
+
     // Start all jobs
     this.jobs.forEach(job => job.start());
     
     logger.info(`Started ${this.jobs.size} background jobs`);
+  }
+
+  // Warm Redis cache for active markets (Issue #96)
+  async warmCache() {
+    try {
+      const cacheService = require('./cacheService');
+      await cacheService.refreshActiveMarketsCache();
+    } catch (error) {
+      logger.error('Failed to warm active markets cache in background job:', error);
+    }
   }
 
   stop() {

@@ -605,6 +605,30 @@ export default function MarketDetail() {
                       onChange={(e) => setAmount(e.target.value)}
                       className="input-dark text-lg"
                     />
+                    {/* Quick Amount Shortcuts (Issue #98) */}
+                    <div className="flex gap-1.5 mt-2">
+                      {['10', '50', '100', '500'].map((val) => (
+                        <Button
+                          key={val}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs flex-1 border-white/10 hover:border-primary/50 hover:bg-primary/10 transition-all rounded-md"
+                          onClick={() => setAmount(val)}
+                        >
+                          ${val}
+                        </Button>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs flex-1 border-white/10 hover:border-primary/50 hover:bg-primary/10 transition-all rounded-md"
+                        onClick={() => setAmount('1000')}
+                      >
+                        Max
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Trade Summary */}

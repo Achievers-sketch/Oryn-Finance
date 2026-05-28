@@ -4,6 +4,7 @@ const sorobanService = require('../services/sorobanService');
 const contractConfig = require('../config/contracts');
 const logger = require('../config/logger');
 const { NotFoundError, ValidationError, ForbiddenError, BadRequestError } = require('../middleware/errorHandler');
+const cacheService = require('../services/cacheService');
 
 class MarketController {
   // Get all markets with filtering and pagination
@@ -19,6 +20,29 @@ class MarketController {
       page = 1,
       limit = 20
     } = req.query;
+
+    const isDefaultQuery = 
+      !category && 
+      !region && 
+      status === 'active' && 
+      sortBy === 'createdAt' && 
+      sortOrder === 'desc' && 
+      !search && 
+      !tags && 
+      parseInt(page) === 1 && 
+      parseInt(limit) === 20;
+
+    // Cache-Aside default query
+    if (isDefaultQuery) {
+      const cachedResult = await cacheService.get(cacheService.getKeys.allMarkets());
+      if (cachedResult) {
+        logger.info('Serving default markets list from Redis cache');
+        return res.json({
+          success: true,
+          data: cachedResult
+        });
+      }
+    }
 
     const filter = {};
     
@@ -97,7 +121,23 @@ class MarketController {
       })
     );
 
-    logger.info('Markets retrieved', {
+    const responseData = {
+      markets: marketsWithPrices,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / limit),
+        totalItems: total,
+        itemsPerPage: parseInt(limit),
+        hasNextPage: page < Math.ceil(total / limit),
+        hasPrevPage: page > 1
+      }
+    };
+
+    if (isDefaultQuery) {
+      await cacheService.set(cacheService.getKeys.allMarkets(), responseData, cacheService.DEFAULT_TTL);
+    }
+
+    logger.info('Markets retrieved from DB', {
       count: markets.length,
       total,
       filters: { category, status, search },
@@ -106,23 +146,26 @@ class MarketController {
 
     res.json({
       success: true,
-      data: {
-        markets: marketsWithPrices,
-        pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(total / limit),
-          totalItems: total,
-          itemsPerPage: limit,
-          hasNextPage: page < Math.ceil(total / limit),
-          hasPrevPage: page > 1
-        }
-      }
+      data: responseData
     });
   }
 
   // Get trending markets
   static async getTrendingMarkets(req, res) {
     const { limit = 10, timeframe = '24h' } = req.query;
+
+    const cacheKey = `${cacheService.getKeys.trendingMarkets()}:${timeframe}:${limit}`;
+    const cachedResult = await cacheService.get(cacheKey);
+    if (cachedResult) {
+      logger.info(`Serving trending markets (${timeframe}, limit: ${limit}) from cache`);
+      return res.json({
+        success: true,
+        data: {
+          markets: cachedResult,
+          timeframe
+        }
+      });
+    }
     
     let timeFilter = {};
     const now = new Date();
@@ -151,6 +194,8 @@ class MarketController {
       .limit(parseInt(limit))
       .lean();
 
+    await cacheService.set(cacheKey, markets, cacheService.SHORT_TTL);
+
     res.json({
       success: true,
       data: {
@@ -164,6 +209,15 @@ class MarketController {
   static async getFeaturedMarkets(req, res) {
     const { limit = 5 } = req.query;
 
+    const cacheKey = `market:featured:${limit}`;
+    const cachedResult = await cacheService.get(cacheKey);
+    if (cachedResult) {
+      return res.json({
+        success: true,
+        data: { markets: cachedResult }
+      });
+    }
+
     const markets = await Market.find({
       status: 'active',
       isFeatured: true
@@ -171,6 +225,8 @@ class MarketController {
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .lean();
+
+    await cacheService.set(cacheKey, markets, cacheService.DEFAULT_TTL);
 
     res.json({
       success: true,
@@ -257,6 +313,19 @@ class MarketController {
   // Get specific market by ID
   static async getMarketById(req, res) {
     const { id } = req.params;
+    const cacheKey = cacheService.getKeys.marketDetail(id);
+
+    // Serve public views from cache
+    if (!req.user) {
+      const cachedMarket = await cacheService.get(cacheKey);
+      if (cachedMarket) {
+        logger.info(`Serving market detail ${id} from cache`);
+        return res.json({
+          success: true,
+          data: cachedMarket
+        });
+      }
+    }
     
     const market = await Market.findOne({ marketId: id }).lean();
     
@@ -291,7 +360,7 @@ class MarketController {
       priceHistory: priceHistory
     };
 
-    // If user is authenticated, get their position
+    // If user is authenticated, get their position (do not cache user specific position)
     if (req.user) {
       const userPosition = await Position.findOne({
         marketId: id,
@@ -300,6 +369,9 @@ class MarketController {
       }).lean();
       
       marketData.userPosition = userPosition;
+    } else {
+      // Cache the public market details
+      await cacheService.set(cacheKey, marketData, cacheService.DEFAULT_TTL);
     }
 
     logger.market('Market viewed', {

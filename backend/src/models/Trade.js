@@ -400,4 +400,35 @@ tradeSchema.pre('save', function(next) {
   next();
 });
 
+// Post-save cache invalidation & market manipulation scanning (Issues #96, #97)
+tradeSchema.post('save', function(doc) {
+  try {
+    const cacheService = require('../services/cacheService');
+    cacheService.invalidateMarket(doc.marketId);
+    if (doc.userWalletAddress) {
+      cacheService.evict(cacheService.getKeys.userPositions(doc.userWalletAddress));
+    }
+  } catch (error) {
+    const logger = require('../config/logger');
+    logger.error('Failed to invalidate trade cache in post-save hook:', error);
+  }
+
+  // Trigger market manipulation scans for newly confirmed trades
+  if (doc.status === 'confirmed') {
+    try {
+      const manipulationDetector = require('../services/manipulationDetector');
+      // Execute asynchronously to not block the main database save transaction thread
+      setImmediate(() => {
+        manipulationDetector.scanTrade(doc).catch(err => {
+          const logger = require('../config/logger');
+          logger.error('Error running manipulation scan on trade:', err);
+        });
+      });
+    } catch (detectorError) {
+      const logger = require('../config/logger');
+      logger.error('Failed to initialize manipulation detector inside post-save hook:', detectorError);
+    }
+  }
+});
+
 module.exports = mongoose.model('Trade', tradeSchema);

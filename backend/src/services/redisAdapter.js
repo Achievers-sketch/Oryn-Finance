@@ -78,6 +78,92 @@ class RedisAdapter {
     }
   }
 
+  /* ============================================================
+     CACHING LAYER METHODS (Issue #96)
+     ============================================================ */
+
+  /**
+   * Get cached value from Redis
+   */
+  async get(key) {
+    if (!this.isConnected) return null;
+    try {
+      const data = await this.publisher.get(key);
+      if (!data) return null;
+      try {
+        return JSON.parse(data);
+      } catch (parseError) {
+        return data; // Return raw string if JSON parsing fails
+      }
+    } catch (error) {
+      logger.error(`Redis cache get error for key ${key}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Set cache value with TTL in seconds
+   */
+  async set(key, value, ttlSeconds = 300) {
+    if (!this.isConnected) return false;
+    try {
+      const stringifiedValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+      await this.publisher.set(key, stringifiedValue, {
+        EX: ttlSeconds
+      });
+      return true;
+    } catch (error) {
+      logger.error(`Redis cache set error for key ${key}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Delete specific cache key
+   */
+  async del(key) {
+    if (!this.isConnected) return false;
+    try {
+      await this.publisher.del(key);
+      return true;
+    } catch (error) {
+      logger.error(`Redis cache delete error for key ${key}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Delete all keys matching pattern (e.g. 'market:*')
+   */
+  async clearPattern(pattern) {
+    if (!this.isConnected) return false;
+    try {
+      let cursor = 0;
+      let deletedCount = 0;
+      
+      do {
+        const reply = await this.publisher.scan(cursor, {
+          MATCH: pattern,
+          COUNT: 100
+        });
+        
+        cursor = reply.cursor;
+        const keys = reply.keys;
+        
+        if (keys && keys.length > 0) {
+          await this.publisher.del(keys);
+          deletedCount += keys.length;
+        }
+      } while (cursor !== 0);
+      
+      logger.info(`Cleared ${deletedCount} cache keys matching pattern ${pattern}`);
+      return true;
+    } catch (error) {
+      logger.error(`Redis clearPattern error for pattern ${pattern}:`, error);
+      return false;
+    }
+  }
+
   async disconnect() {
     try {
       if (this.publisher) await this.publisher.disconnect();

@@ -312,4 +312,15 @@ marketSchema.pre('save', function(next) {
   next();
 });
 
+// Post-save cache invalidation middleware (Issue #96)
+marketSchema.post('save', function(doc) {
+  try {
+    const cacheService = require('../services/cacheService');
+    cacheService.invalidateMarket(doc.marketId, doc.category);
+  } catch (error) {
+    const logger = require('../config/logger');
+    logger.error('Failed to invalidate market cache in post-save hook:', error);
+  }
+});
+
 module.exports = mongoose.model('Market', marketSchema);
