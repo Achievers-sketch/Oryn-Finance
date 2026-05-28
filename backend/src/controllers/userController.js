@@ -1,6 +1,34 @@
 const { User, Trade, Position, Market } = require('../models');
 const logger = require('../config/logger');
 const { NotFoundError, ValidationError } = require('../middleware/errorHandler');
+const sorobanService = require('../services/sorobanService');
+
+const VERIFIED_CREATOR_THRESHOLD = 600;
+
+function normalizeContractReputation(contractResponse) {
+  const result = contractResponse?.result;
+  if (!result) return null;
+
+  if (typeof result === 'number') {
+    return { score: result, updatedAt: null };
+  }
+
+  const rawScore = Number(result.score ?? result.reputationScore ?? 0);
+  const rawUpdatedAt = Number(result.updated_at ?? result.updatedAt ?? 0);
+
+  return {
+    score: Number.isFinite(rawScore) ? rawScore : 0,
+    updatedAt: rawUpdatedAt > 0 ? new Date(rawUpdatedAt * 1000).toISOString() : null
+  };
+}
+
+function buildTrustLevel(score) {
+  if (score >= 800) return 'diamond';
+  if (score >= 600) return 'verified';
+  if (score >= 400) return 'trusted';
+  if (score >= 200) return 'emerging';
+  return 'new';
+}
 
 class UserController {
   // Get current user profile
@@ -240,6 +268,51 @@ class UserController {
     }
   }
 
+  // Get public creator reputation for market credibility displays
+  static async getPublicUserReputation(req, res) {
+    try {
+      const { walletAddress } = req.params;
+      const user = await User.findOne({ walletAddress }).lean();
+
+      let contractReputation = null;
+      try {
+        contractReputation = normalizeContractReputation(
+          await sorobanService.getUserReputation(walletAddress)
+        );
+      } catch (error) {
+        logger.warn('Falling back to indexed reputation data', {
+          walletAddress,
+          error: error.message
+        });
+      }
+
+      const score = Math.max(0, Math.min(1000, Math.round(
+        contractReputation?.score ?? user?.reputationScore ?? 0
+      )));
+      const verified = Boolean(user?.profile?.isVerified) || score >= VERIFIED_CREATOR_THRESHOLD;
+
+      res.json({
+        success: true,
+        data: {
+          walletAddress,
+          trustScore: score,
+          verified,
+          trustLevel: buildTrustLevel(score),
+          source: contractReputation ? 'reputation_contract' : 'indexed_profile',
+          updatedAt: contractReputation?.updatedAt ?? user?.updatedAt ?? null,
+          statistics: {
+            marketsCreated: user?.statistics?.marketsCreated || 0,
+            winRate: user?.statistics?.winRate || 0,
+            totalVolume: user?.statistics?.totalVolume || 0
+          }
+        }
+      });
+    } catch (error) {
+      logger.error('Get public user reputation failed:', error);
+      throw error;
+    }
+  }
+
   // Get user trade statistics
   static async getUserStats(req, res) {
     try {
@@ -397,6 +470,105 @@ class UserController {
       });
     } catch (error) {
       logger.error('Get user reputation failed:', error);
+      throw error;
+    }
+  }
+
+  // Add market to favorites
+  static async addFavoriteMarket(req, res) {
+    try {
+      const { marketId } = req.body;
+      const walletAddress = req.user.walletAddress;
+
+      if (!marketId) {
+        throw new ValidationError('Market ID is required');
+      }
+
+      const user = await User.findOne({ walletAddress });
+      if (!user) {
+        throw new NotFoundError('User not found');
+      }
+
+      if (!user.favoriteMarkets.includes(marketId)) {
+        user.favoriteMarkets.push(marketId);
+        await user.save();
+      }
+
+      logger.info('Market added to favorites', { walletAddress, marketId });
+
+      res.json({
+        success: true,
+        data: { favoriteMarkets: user.favoriteMarkets },
+        message: 'Market added to favorites'
+      });
+    } catch (error) {
+      logger.error('Add favorite market failed:', error);
+      throw error;
+    }
+  }
+
+  // Remove market from favorites
+  static async removeFavoriteMarket(req, res) {
+    try {
+      const { marketId } = req.params;
+      const walletAddress = req.user.walletAddress;
+
+      const user = await User.findOne({ walletAddress });
+      if (!user) {
+        throw new NotFoundError('User not found');
+      }
+
+      user.favoriteMarkets = user.favoriteMarkets.filter(id => id !== marketId);
+      await user.save();
+
+      logger.info('Market removed from favorites', { walletAddress, marketId });
+
+      res.json({
+        success: true,
+        data: { favoriteMarkets: user.favoriteMarkets },
+        message: 'Market removed from favorites'
+      });
+    } catch (error) {
+      logger.error('Remove favorite market failed:', error);
+      throw error;
+    }
+  }
+
+  // Get user's favorite markets
+  static async getFavoriteMarkets(req, res) {
+    try {
+      const walletAddress = req.user.walletAddress;
+      const { page = 1, limit = 20 } = req.query;
+
+      const user = await User.findOne({ walletAddress });
+      if (!user) {
+        throw new NotFoundError('User not found');
+      }
+
+      const skip = (page - 1) * limit;
+      const favoriteMarketIds = user.favoriteMarkets || [];
+
+      const [markets, total] = await Promise.all([
+        Market.find({ marketId: { $in: favoriteMarketIds } })
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(parseInt(limit))
+          .lean(),
+        favoriteMarketIds.length
+      ]);
+
+      res.json({
+        success: true,
+        data: markets,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / limit)
+        }
+      });
+    } catch (error) {
+      logger.error('Get favorite markets failed:', error);
       throw error;
     }
   }

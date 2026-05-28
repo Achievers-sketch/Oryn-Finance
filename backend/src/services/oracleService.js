@@ -5,6 +5,18 @@ const OracleProviderLoader = require('./oracle/OracleProviderLoader');
 const OUTLIER_THRESHOLD = 0.15;
 const ANOMALY_THRESHOLD = 0.25; // 25% price drift threshold
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second
+const QUEUE_RETRY_DELAY = 30 * 1000; // 30 seconds
+const MAX_QUEUE_ATTEMPTS = 5;
+
+// Fallback sources for different market types
+const FALLBACK_SOURCES = {
+  crypto: ['coingecko', 'chainlink'],
+  sports: ['sports-api'],
+  news: ['news-api'],
+  generic: ['coingecko', 'chainlink', 'sports-api']
+};
 
 /**
  * OracleService
@@ -21,7 +33,12 @@ class OracleService {
     this.registry = this.providerLoader.getRegistry();
     this.resultCache = new Map(); // {marketId: {result, timestamp}}
     this.discrepancyLog = []; // Track all discrepancies
-    this.initialized = false;
+    this.sourceHealth = {}; // Track health of each source
+    this.priceHistory = new Map(); // {symbol: [{price, timestamp}]}
+    this.retryQueue = [];
+    this.retryHistory = [];
+    this.isProcessingRetryQueue = false;
+    this.initializeSourceHealth();
   }
 
   /**
@@ -138,12 +155,221 @@ class OracleService {
     });
   }
 
+  getFallbackSources(category) {
+    const normalizedCategory = String(category || 'generic').toLowerCase();
+    return FALLBACK_SOURCES[normalizedCategory] || FALLBACK_SOURCES.generic;
+  }
+
+  getResolutionSources(market) {
+    const primarySources = (market.oracleConfig?.sources || [market.oracleSource])
+      .filter(source => source && source !== 'manual');
+    const fallbackSources = this.getFallbackSources(market.category)
+      .filter(source => !primarySources.includes(source));
+
+    return {
+      primarySources,
+      fallbackSources,
+      candidateSources: [...primarySources, ...fallbackSources]
+    };
+  }
+
+  cloneMarketForQueue(market) {
+    const rawMarket = typeof market.toObject === 'function' ? market.toObject() : market;
+    return JSON.parse(JSON.stringify(rawMarket));
+  }
+
+  enqueueFailedRequest(market, metadata = {}) {
+    const marketId = market.marketId || market._id?.toString();
+    if (!marketId) {
+      logger.oracle('Skipped oracle retry queue item without market id', { metadata });
+      return null;
+    }
+
+    const existing = this.retryQueue.find(item => item.marketId === marketId && item.status === 'pending');
+    if (existing) {
+      existing.updatedAt = new Date().toISOString();
+      existing.lastError = metadata.lastError || existing.lastError;
+      existing.sources = metadata.sources || existing.sources;
+      logger.oracle('Oracle retry request already queued', {
+        marketId,
+        queueId: existing.id,
+        attempts: existing.attempts,
+        nextAttemptAt: existing.nextAttemptAt
+      });
+      return existing;
+    }
+
+    const now = Date.now();
+    const item = {
+      id: `${marketId}-${now}`,
+      marketId,
+      market: this.cloneMarketForQueue(market),
+      status: 'pending',
+      attempts: 0,
+      maxAttempts: metadata.maxAttempts || MAX_QUEUE_ATTEMPTS,
+      sources: metadata.sources || this.getResolutionSources(market).candidateSources,
+      lastError: metadata.lastError || 'Oracle resolution failed',
+      createdAt: new Date(now).toISOString(),
+      updatedAt: new Date(now).toISOString(),
+      nextAttemptAt: new Date(now + (metadata.retryDelay || QUEUE_RETRY_DELAY)).toISOString(),
+      history: []
+    };
+
+    this.retryQueue.push(item);
+    logger.oracle('Queued failed oracle request', {
+      queueId: item.id,
+      marketId,
+      sources: item.sources,
+      nextAttemptAt: item.nextAttemptAt,
+      reason: item.lastError
+    });
+
+    return item;
+  }
+
+  getRetryQueueStatus() {
+    return {
+      pending: this.retryQueue.filter(item => item.status === 'pending').length,
+      processing: this.isProcessingRetryQueue,
+      items: this.retryQueue.map(item => ({
+        id: item.id,
+        marketId: item.marketId,
+        status: item.status,
+        attempts: item.attempts,
+        maxAttempts: item.maxAttempts,
+        sources: item.sources,
+        lastError: item.lastError,
+        nextAttemptAt: item.nextAttemptAt,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt
+      })),
+      history: this.retryHistory.slice(-25)
+    };
+  }
+
+  clearRetryQueue() {
+    const count = this.retryQueue.length;
+    this.retryQueue = [];
+    this.retryHistory = [];
+    logger.oracle('Oracle retry queue cleared', { clearedCount: count });
+    return count;
+  }
+
+  async processRetryQueue(now = Date.now()) {
+    if (this.isProcessingRetryQueue) {
+      logger.oracle('Oracle retry queue processing already in progress');
+      return [];
+    }
+
+    this.isProcessingRetryQueue = true;
+    const processed = [];
+
+    try {
+      const dueItems = this.retryQueue.filter(item => (
+        item.status === 'pending' && new Date(item.nextAttemptAt).getTime() <= now
+      ));
+
+      for (const item of dueItems) {
+        const result = await this.processRetryItem(item);
+        processed.push(result);
+      }
+
+      this.retryQueue = this.retryQueue.filter(item => item.status === 'pending');
+      return processed;
+    } finally {
+      this.isProcessingRetryQueue = false;
+    }
+  }
+
+  async processRetryItem(item) {
+    item.attempts += 1;
+    item.updatedAt = new Date().toISOString();
+
+    logger.oracle('Processing queued oracle retry', {
+      queueId: item.id,
+      marketId: item.marketId,
+      attempt: item.attempts,
+      maxAttempts: item.maxAttempts,
+      sources: item.sources
+    });
+
+    const results = [];
+    for (const source of item.sources) {
+      const result = await this.resolveSourceWithRetry(item.market, source);
+      item.history.push({
+        source,
+        attempt: item.attempts,
+        success: Boolean(result),
+        timestamp: new Date().toISOString()
+      });
+
+      if (result) {
+        results.push(result);
+        break;
+      }
+    }
+
+    if (results.length > 0) {
+      const aggregated = this.aggregateResults(results);
+      this.detectAnomalies(item.marketId, aggregated, results);
+      this.cacheResult(item.marketId, aggregated);
+      item.status = 'resolved';
+      item.result = aggregated;
+      item.updatedAt = new Date().toISOString();
+      this.retryHistory.push({
+        queueId: item.id,
+        marketId: item.marketId,
+        status: 'resolved',
+        attempts: item.attempts,
+        timestamp: item.updatedAt,
+        sources: results.map(result => result.source)
+      });
+      logger.oracle('Queued oracle retry resolved', {
+        queueId: item.id,
+        marketId: item.marketId,
+        attempts: item.attempts,
+        sources: results.map(result => result.source),
+        outcome: aggregated.outcome
+      });
+      return { item, result: aggregated };
+    }
+
+    item.lastError = 'All retry sources failed';
+    item.updatedAt = new Date().toISOString();
+
+    if (item.attempts >= item.maxAttempts) {
+      item.status = 'failed';
+      this.retryHistory.push({
+        queueId: item.id,
+        marketId: item.marketId,
+        status: 'failed',
+        attempts: item.attempts,
+        timestamp: item.updatedAt
+      });
+      logger.error('Queued oracle retry exhausted', {
+        queueId: item.id,
+        marketId: item.marketId,
+        attempts: item.attempts,
+        sources: item.sources
+      });
+    } else {
+      item.nextAttemptAt = new Date(Date.now() + (QUEUE_RETRY_DELAY * item.attempts)).toISOString();
+      logger.oracle('Queued oracle retry scheduled again', {
+        queueId: item.id,
+        marketId: item.marketId,
+        attempts: item.attempts,
+        nextAttemptAt: item.nextAttemptAt
+      });
+    }
+
+    return { item, result: null };
+  }
+
   /**
    * Resolve market with primary sources and fallback
    * Uses plugin-based providers from the registry
    */
-  async resolveWithFallback(market) {
-    this.ensureInitialized();
+  async resolveWithFallback(market, options = {}) {
     const marketId = market.marketId;
 
     // Try to use cache first
@@ -152,24 +378,56 @@ class OracleService {
       return cachedResult;
     }
 
-    // Get primary sources from market config or use default
-    const primarySources = market.oracleConfig?.sources || [market.oracleSource];
-
+    // Try primary sources first
+    let results = [];
+    const { primarySources, fallbackSources, candidateSources } = this.getResolutionSources(market);
+    
     logger.oracle('Starting oracle resolution with primary sources', {
       marketId,
       primarySources,
       category: market.category
     });
 
-    // Use registry's built-in fallback resolution
-    const results = await this.registry.resolveWithFallback(market, primarySources);
+    for (const source of primarySources) {
+      const result = await this.resolveSourceWithRetry(market, source);
+      if (result) {
+        results.push(result);
+      }
+    }
+
+    // If primary sources fail, try fallback sources
+    if (results.length === 0 && fallbackSources.length > 0) {
+      logger.oracle('Primary sources failed, attempting fallback sources', {
+        marketId,
+        category: market.category,
+        fallbackSources
+      });
+      
+      for (const source of fallbackSources) {
+        const result = await this.resolveSourceWithRetry(market, source);
+        if (result) {
+          results.push(result);
+          logger.oracle('Fallback source succeeded', {
+            marketId,
+            fallbackSource: source
+          });
+          break; // Use first successful fallback
+        }
+      }
+    }
 
     if (!results || results.length === 0) {
       logger.error('All oracle sources failed', {
         marketId,
         primarySources,
-        category: market.category
+        fallbackSources
       });
+      if (!options.skipQueue) {
+        this.enqueueFailedRequest(market, {
+          sources: candidateSources,
+          lastError: 'All oracle sources failed'
+        });
+      }
       return null;
     }
 
@@ -402,6 +660,11 @@ class OracleService {
           confidence: result.confidence
         });
         this.cacheResult(market.marketId, result);
+      } else {
+        this.enqueueFailedRequest(market, {
+          sources: this.getResolutionSources(market).candidateSources,
+          lastError: `Oracle source ${market.oracleSource} returned no result`
+        });
       }
 
       return result;

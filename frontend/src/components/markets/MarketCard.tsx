@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { TrendingUp, Clock, Users, ArrowRight, AlertTriangle } from 'lucide-react';
+import { TrendingUp, Clock, Users, ArrowRight, AlertTriangle, Heart } from 'lucide-react';
 import { Market } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -41,8 +42,13 @@ const categoryColors: Record<string, string> = {
 export function MarketCard({ market, featured = false }: MarketCardProps) {
   const yesPercent = Math.round(market.yesPrice * 100);
   const noPercent = Math.round(market.noPrice * 100);
+  const [isFavorite, setIsFavorite] = useState(false);
 
-  console.log('MarketCard rendering with market:', market.id, market.question); // Debug log
+  const toggleFavorite = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsFavorite(!isFavorite);
+  };
 
   return (
     <Link to={`/market/${market.id}`} className="block group">
@@ -63,12 +69,25 @@ export function MarketCard({ market, featured = false }: MarketCardProps) {
               </span>
               <CountdownTimer expiryDate={market.expirationDate} />
             </div>
-            {market.status === 'Trending' && (
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
-                <TrendingUp className="w-3 h-3" />
-                <span className="text-[10px] font-black uppercase">Trending</span>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleFavorite}
+                className="p-1.5 rounded-full hover:bg-white/5 transition-colors"
+              >
+                <Heart
+                  className={cn(
+                    "w-4 h-4 transition-colors",
+                    isFavorite ? "fill-red-500 text-red-500" : "text-white/40 hover:text-white/60"
+                  )}
+                />
+              </button>
+              {market.status === 'Trending' && (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                  <TrendingUp className="w-3 h-3" />
+                  <span className="text-[10px] font-black uppercase">Trending</span>
+                </div>
+              )}
+            </div>
           </div>
 
           <h3 className="text-lg font-bold mb-3 line-clamp-2 text-white leading-tight group-hover:text-primary transition-colors">

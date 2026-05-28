@@ -14,10 +14,12 @@ import { format } from 'date-fns';
 import { useWallet } from '@/contexts/WalletContext';
 import { apiService } from '@/services/apiService';
 import { toast } from 'sonner';
+import { useI18n } from '@/i18n';
 
 const categories = ['Crypto', 'Sports', 'Politics', 'Entertainment'];
 
 export default function CreateMarket() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const { isConnected, connect, publicKey, signTransaction } = useWallet();
   const [question, setQuestion] = useState('');
@@ -164,9 +166,9 @@ export default function CreateMarket() {
     <Layout>
       <div className="container mx-auto px-4 py-12 max-w-4xl">
         <div className="text-center mb-10">
-          <h1 className="text-3xl md:text-4xl font-bold mb-4">Create a Market</h1>
+          <h1 className="text-3xl md:text-4xl font-bold mb-4">{t('create.title')}</h1>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Launch your own prediction market and earn fees on every trade. Anyone can participate once your market goes live.
+            {t('create.subtitle')}
           </p>
         </div>
 
@@ -176,25 +178,25 @@ export default function CreateMarket() {
             <div className="glass-card p-6 space-y-6">
               {/* Question */}
               <div className="space-y-2">
-                <Label htmlFor="question">Market Question *</Label>
+                <Label htmlFor="question">{t('create.question')}</Label>
                 <Textarea
                   id="question"
-                  placeholder="Will Bitcoin exceed $150,000 by December 31, 2025?"
+                  placeholder={t('create.questionPlaceholder')}
                   value={question}
                   onChange={(e) => setQuestion(e.target.value.slice(0, maxChars))}
                   className="input-dark min-h-[100px]"
                 />
                 <p className={`text-xs ${charCount > maxChars - 20 ? 'text-warning' : 'text-muted-foreground'}`}>
-                  {charCount}/{maxChars} characters
+                  {t('create.characters', { count: charCount, max: maxChars })}
                 </p>
               </div>
 
               {/* Category */}
               <div className="space-y-2">
-                <Label>Category *</Label>
+                <Label>{t('create.category')}</Label>
                 <Select value={category} onValueChange={setCategory}>
                   <SelectTrigger className="input-dark">
-                    <SelectValue placeholder="Select a category" />
+                    <SelectValue placeholder={t('create.selectCategory')} />
                   </SelectTrigger>
                   <SelectContent>
                     {categories.map((cat) => (
@@ -206,23 +208,23 @@ export default function CreateMarket() {
 
               {/* Resolution Source */}
               <div className="space-y-2">
-                <Label htmlFor="resolution">Resolution Source & Criteria *</Label>
+                <Label htmlFor="resolution">{t('create.resolution')}</Label>
                 <Textarea
                   id="resolution"
-                  placeholder="This market will resolve to YES if the official Bitcoin price on CoinGecko exceeds $150,000 at any point before the expiration date..."
+                  placeholder={t('create.resolutionPlaceholder')}
                   value={resolutionSource}
                   onChange={(e) => setResolutionSource(e.target.value)}
                   className="input-dark min-h-[100px]"
                 />
                 <p className="text-xs text-muted-foreground flex items-start gap-1">
                   <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                  Be specific about what data source and conditions will determine the outcome
+                  {t('create.resolutionHelp')}
                 </p>
               </div>
 
               {/* End Date */}
               <div className="space-y-2">
-                <Label>Market End Date *</Label>
+                <Label>{t('create.endDate')}</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -230,7 +232,7 @@ export default function CreateMarket() {
                       className="w-full justify-start text-left font-normal input-dark"
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {endDate ? format(endDate, 'PPP') : 'Pick a date'}
+                      {endDate ? format(endDate, 'PPP') : t('create.pickDate')}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0 bg-card border-border">
@@ -247,7 +249,7 @@ export default function CreateMarket() {
 
               {/* Initial Liquidity */}
               <div className="space-y-2">
-                <Label htmlFor="liquidity">Initial Liquidity (USDC) *</Label>
+                <Label htmlFor="liquidity">{t('create.liquidity')}</Label>
                 <Input
                   id="liquidity"
                   type="number"
@@ -257,14 +259,14 @@ export default function CreateMarket() {
                   className="input-dark"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Minimum 50 USDC. Higher liquidity = better trading experience
+                  {t('create.liquidityHelp')}
                 </p>
               </div>
 
               {/* Fee Percentage */}
               <div className="space-y-4">
                 <div className="flex justify-between">
-                  <Label>Trading Fee</Label>
+                  <Label>{t('create.tradingFee')}</Label>
                   <span className="text-sm font-medium">{feePercentage[0]}%</span>
                 </div>
                 <Slider
@@ -276,7 +278,7 @@ export default function CreateMarket() {
                   className="py-4"
                 />
                 <p className="text-xs text-muted-foreground">
-                  You earn this fee on every trade. Higher fees = more earnings but less trading volume
+                  {t('create.feeHelp')}
                 </p>
               </div>
             </div>
@@ -286,15 +288,15 @@ export default function CreateMarket() {
           <div className="lg:col-span-2 space-y-6">
             {/* Preview Card */}
             <div className="glass-card p-6">
-              <h3 className="font-semibold mb-4">Market Preview</h3>
+              <h3 className="font-semibold mb-4">{t('create.preview')}</h3>
               <div className="market-card">
                 <div className="flex items-center gap-2 mb-3">
                   <span className={`px-2 py-1 rounded text-xs ${category ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                    {category || 'Category'}
+                    {category || t('create.category').replace(' *', '')}
                   </span>
                 </div>
                 <p className="font-medium mb-4 line-clamp-3">
-                  {question || 'Your market question will appear here...'}
+                  {question || t('create.previewQuestion')}
                 </p>
                 <div className="grid grid-cols-2 gap-2 mb-4">
                   <div className="p-3 rounded-lg bg-success/10 text-center">
@@ -307,25 +309,25 @@ export default function CreateMarket() {
                   </div>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Ends: {endDate ? format(endDate, 'PP') : 'Not set'}
+                  {t('create.ends', { date: endDate ? format(endDate, 'PP') : t('create.notSet') })}
                 </div>
               </div>
             </div>
 
             {/* Cost Summary */}
             <div className="glass-card p-6">
-              <h3 className="font-semibold mb-4">Estimated Costs</h3>
+              <h3 className="font-semibold mb-4">{t('create.costs')}</h3>
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Initial Liquidity</span>
+                  <span className="text-muted-foreground">{t('create.initialLiquidity')}</span>
                   <span>${parseFloat(initialLiquidity) || 0} USDC</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Network Fee</span>
+                  <span className="text-muted-foreground">{t('create.networkFee')}</span>
                   <span>~$0.01 XLM</span>
                 </div>
                 <div className="border-t border-border pt-3 flex justify-between font-semibold">
-                  <span>Total</span>
+                  <span>{t('create.total')}</span>
                   <span className="gradient-text">${estimatedCost.toFixed(2)}</span>
                 </div>
               </div>
@@ -335,16 +337,16 @@ export default function CreateMarket() {
             <div className="p-4 rounded-lg bg-warning/10 border border-warning/20 flex gap-3">
               <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
               <div className="text-sm">
-                <p className="font-medium text-warning">Important</p>
+                <p className="font-medium text-warning">{t('create.important')}</p>
                 <p className="text-muted-foreground mt-1">
-                  Once created, markets cannot be edited. Make sure all information is accurate before proceeding.
+                  {t('create.warning')}
                 </p>
               </div>
             </div>
 
             {txStatus.phase !== 'idle' && (
               <div className={`p-4 rounded-lg border ${txStatus.phase === 'error' ? 'bg-red-500/10 border-red-500/20' : 'bg-primary/10 border-primary/20'}`}>
-                <p className="text-sm font-medium mb-2">Transaction Status</p>
+                <p className="text-sm font-medium mb-2">{t('create.status')}</p>
                 <p className="text-xs text-muted-foreground mb-3">{txStatus.message}</p>
                 <div className="w-full h-2 rounded bg-muted/40 overflow-hidden">
                   <div
@@ -374,12 +376,12 @@ export default function CreateMarket() {
               {isCreating ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Creating Market...
+                  {t('create.creating')}
                 </>
               ) : !isConnected ? (
-                'Connect Wallet to Create'
+                t('create.connect')
               ) : (
-                'Create Market'
+                t('create.submit')
               )}
             </Button>
           </div>

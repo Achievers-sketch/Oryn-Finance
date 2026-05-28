@@ -50,6 +50,7 @@ export const ENDPOINTS = {
   USERS: '/users',
   USER_PROFILE: '/users/profile',
   USER_BY_ADDRESS: (address: string) => `/users/${address}`,
+  USER_REPUTATION_BY_ADDRESS: (address: string) => `/users/${address}/reputation`,
   USER_POSITIONS: '/users/positions',
   USER_STATS: '/users/stats',
   

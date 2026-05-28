@@ -5,22 +5,24 @@ import { WalletSelector } from '@/components/WalletSelector';
 import { WalletBalance } from '@/components/wallet/WalletBalance';
 import { CompactWalletBalance } from '@/components/wallet/CompactWalletBalance';
 import { useWallet } from '@/contexts/WalletContext';
+import { useI18n } from '@/i18n';
 
 const navItems = [
-  { name: 'Home', path: '/' },
-  { name: 'Markets', path: '/markets' },
-  { name: 'Liquidity', path: '/liquidity' },
-  { name: 'Create', path: '/create' },
-  { name: 'About', path: '/about' },
-  { name: 'Leaderboard', path: '/leaderboard' },
-  { name: 'Analytics', path: '/analytics' },
-  { name: 'Governance', path: '/governance' },
+  { labelKey: 'nav.home', path: '/' },
+  { labelKey: 'nav.markets', path: '/markets' },
+  { labelKey: 'nav.liquidity', path: '/liquidity' },
+  { labelKey: 'nav.create', path: '/create' },
+  { labelKey: 'nav.about', path: '/about' },
+  { labelKey: 'nav.leaderboard', path: '/leaderboard' },
+  { labelKey: 'nav.analytics', path: '/analytics' },
+  { labelKey: 'nav.governance', path: '/governance' },
 ];
 
 export function Navbar() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { isConnected, publicKey } = useWallet();
+  const { language, languages, languageNames, setLanguage, t } = useI18n();
 
   const adminAddresses = (import.meta.env.VITE_ADMIN_ADDRESSES || '').split(',').map((a: string) => a.trim().toLowerCase());
   const isAdmin = isConnected && publicKey && (
@@ -48,13 +50,26 @@ export function Navbar() {
                   location.pathname === item.path ? 'text-primary' : 'text-neutral-400'
                 }`}
               >
-                {item.name}
+                {t(item.labelKey)}
               </Link>
             ))}
           </div>
 
           {/* Wallet Section */}
           <div className="flex gap-2 items-center flex-shrink-0">
+            <label className="sr-only" htmlFor="language-select">{t('language.label')}</label>
+            <select
+              id="language-select"
+              value={language}
+              onChange={(event) => setLanguage(event.target.value as typeof language)}
+              className="hidden sm:block h-9 rounded-full border border-white/10 bg-black/30 px-3 text-xs text-white outline-none transition-colors hover:bg-white/5"
+            >
+              {languages.map((lang) => (
+                <option key={lang} value={lang} className="bg-black text-white">
+                  {languageNames[lang]}
+                </option>
+              ))}
+            </select>
             {isAdmin && (
               <Link
                 to="/admin"
@@ -90,7 +105,7 @@ export function Navbar() {
         <div className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-xl animate-fade-in">
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-between px-6 py-6 border-b border-white/10">
-              <span className="text-xl font-bold">Menu</span>
+              <span className="text-xl font-bold">{t('nav.menu')}</span>
               <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-white">
                 <X className="w-6 h-6" />
               </button>
@@ -111,7 +126,7 @@ export function Navbar() {
                     }`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  {item.name}
+                  {t(item.labelKey)}
                 </Link>
               ))}
               {isAdmin && (
@@ -124,7 +139,18 @@ export function Navbar() {
                 </Link>
               )}
               
-              <div className="mt-8">
+              <div className="mt-8 flex flex-col items-center gap-4">
+                <select
+                  value={language}
+                  onChange={(event) => setLanguage(event.target.value as typeof language)}
+                  className="h-10 rounded-full border border-white/10 bg-black/30 px-4 text-sm text-white outline-none"
+                >
+                  {languages.map((lang) => (
+                    <option key={lang} value={lang} className="bg-black text-white">
+                      {languageNames[lang]}
+                    </option>
+                  ))}
+                </select>
                 <WalletSelector />
               </div>
             </div>

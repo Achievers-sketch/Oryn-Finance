@@ -25,6 +25,7 @@ import IntegrationTest from "./components/IntegrationTest";
 import { RabetWalletTest } from "./components/RabetWalletTest";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { useOffline } from "@/hooks/useOffline";
+import { I18nProvider } from "@/i18n";
 
 const queryClient = new QueryClient();
 
@@ -61,9 +62,10 @@ function AppShell() {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <WalletProvider>
-      <WebSocketProvider>
-        <TooltipProvider>
+    <I18nProvider>
+      <WalletProvider>
+        <WebSocketProvider>
+          <TooltipProvider>
           <Toaster />
           <Sonner />
           <HotToaster />
@@ -89,9 +91,10 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
-        </TooltipProvider>
-      </WebSocketProvider>
-    </WalletProvider>
+          </TooltipProvider>
+        </WebSocketProvider>
+      </WalletProvider>
+    </I18nProvider>
   </QueryClientProvider>
 );
 

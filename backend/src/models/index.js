@@ -4,6 +4,7 @@ const Trade = require('./Trade');
 const Position = require('./Position');
 const IndexedEvent = require('./IndexedEvent');
 const ResolutionEvent = require('./ResolutionEvent');
+const Message = require('./Message');
 
 module.exports = {
   Market,
@@ -11,5 +12,6 @@ module.exports = {
   Trade,
   Position,
   IndexedEvent,
-  ResolutionEvent
+  ResolutionEvent,
+  Message
 };

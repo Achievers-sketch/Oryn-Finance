@@ -717,6 +717,176 @@ class MarketController {
     });
   }
 
+  // Get markets sorted by liquidity
+  static async getMarketsByLiquidity(req, res) {
+    const { limit = 20, page = 1, category } = req.query;
+
+    const filter = { status: 'active' };
+    if (category) filter.category = category;
+
+    const skip = (page - 1) * limit;
+
+    const [markets, total] = await Promise.all([
+      Market.find(filter)
+        .sort({ initialLiquidity: -1, totalVolume: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      Market.countDocuments(filter)
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        markets,
+        sortBy: 'liquidity',
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(total / limit),
+          totalItems: total
+        }
+      }
+    });
+  }
+
+  // Get markets sorted by momentum (recent trading activity)
+  static async getMarketsByMomentum(req, res) {
+    const { limit = 20, page = 1, category, timeframe = '24h' } = req.query;
+
+    const filter = { status: 'active' };
+    if (category) filter.category = category;
+
+    const now = new Date();
+    let timeFilter = {};
+    switch (timeframe) {
+      case '1h':
+        timeFilter = { createdAt: { $gte: new Date(now - 60 * 60 * 1000) } };
+        break;
+      case '24h':
+        timeFilter = { createdAt: { $gte: new Date(now - 24 * 60 * 60 * 1000) } };
+        break;
+      case '7d':
+        timeFilter = { createdAt: { $gte: new Date(now - 7 * 24 * 60 * 60 * 1000) } };
+        break;
+    }
+
+    const skip = (page - 1) * limit;
+
+    const markets = await Market.aggregate([
+      { $match: { ...filter, ...timeFilter } },
+      {
+        $addFields: {
+          momentumScore: {
+            $add: [
+              { $multiply: [{ $ifNull: ['$totalVolume', 0] }, 0.4] },
+              { $multiply: [{ $ifNull: ['$statistics.uniqueTraders', 0] }, 0.3] },
+              { $multiply: [{ $ifNull: ['$totalTrades', 0] }, 0.2] },
+              { $multiply: [{ $subtract: [1, { $divide: [{ $subtract: [new Date(), '$createdAt'] }, 86400000] }] }, 0.1] }
+            ]
+          }
+        }
+      },
+      { $sort: { momentumScore: -1 } },
+      { $skip: skip },
+      { $limit: parseInt(limit) }
+    ]);
+
+    const total = await Market.countDocuments(filter);
+
+    res.json({
+      success: true,
+      data: {
+        markets,
+        sortBy: 'momentum',
+        timeframe,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(total / limit),
+          totalItems: total
+        }
+      }
+    });
+  }
+
+  // Get markets sorted by activity (trader count + trade count)
+  static async getMarketsByActivity(req, res) {
+    const { limit = 20, page = 1, category } = req.query;
+
+    const filter = { status: 'active' };
+    if (category) filter.category = category;
+
+    const skip = (page - 1) * limit;
+
+    const [markets, total] = await Promise.all([
+      Market.find(filter)
+        .sort({ 'statistics.uniqueTraders': -1, totalTrades: -1, totalVolume: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      Market.countDocuments(filter)
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        markets,
+        sortBy: 'activity',
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(total / limit),
+          totalItems: total
+        }
+      }
+    });
+  }
+
+  // Get trending algorithm with momentum scoring
+  static async getTrendingMarketsV2(req, res) {
+    const { limit = 10, timeframe = '24h' } = req.query;
+
+    const now = new Date();
+    let timeFilter = {};
+    switch (timeframe) {
+      case '1h':
+        timeFilter = { createdAt: { $gte: new Date(now - 60 * 60 * 1000) } };
+        break;
+      case '24h':
+        timeFilter = { createdAt: { $gte: new Date(now - 24 * 60 * 60 * 1000) } };
+        break;
+      case '7d':
+        timeFilter = { createdAt: { $gte: new Date(now - 7 * 24 * 60 * 60 * 1000) } };
+        break;
+    }
+
+    const markets = await Market.aggregate([
+      { $match: { status: 'active', ...timeFilter } },
+      {
+        $addFields: {
+          trendingScore: {
+            $add: [
+              { $multiply: [{ $ifNull: ['$totalVolume', 0] }, 0.35] },
+              { $multiply: [{ $ifNull: ['$statistics.uniqueTraders', 0] }, 0.25] },
+              { $multiply: [{ $ifNull: ['$totalTrades', 0] }, 0.2] },
+              { $multiply: [{ $ifNull: ['$initialLiquidity', 0] }, 0.1] },
+              { $multiply: [{ $subtract: [1, { $divide: [{ $subtract: [now, '$createdAt'] }, 86400000] }] }, 0.1] }
+            ]
+          }
+        }
+      },
+      { $sort: { trendingScore: -1 } },
+      { $limit: parseInt(limit) }
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        markets,
+        timeframe,
+        algorithm: 'momentum-based'
+      }
+    });
+  }
+
   // Get user's position in market
   static async getUserPosition(req, res) {
     const { id } = req.params;

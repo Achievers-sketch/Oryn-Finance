@@ -51,6 +51,11 @@ class BackgroundJobs {
       await this.processPendingTrades();
     }, { scheduled: false }));
 
+    // Retry failed oracle requests every minute
+    this.jobs.set('oracleRetryQueue', cron.schedule('* * * * *', async () => {
+      await this.processOracleRetryQueue();
+    }, { scheduled: false }));
+
     // Update user reputation scores every 6 hours
     this.jobs.set('userReputation', cron.schedule('0 */6 * * *', async () => {
       await this.updateUserReputationScores();
@@ -192,6 +197,70 @@ class BackgroundJobs {
         marketId: market.marketId
       });
     }
+  }
+
+  async processOracleRetryQueue() {
+    try {
+      const processed = await oracleService.processRetryQueue();
+      const resolvedRetries = processed.filter(item => item.result);
+
+      for (const retry of resolvedRetries) {
+        await this.resolveMarketFromOracleRetry(retry);
+      }
+
+      if (processed.length > 0) {
+        logger.oracle('Processed oracle retry queue', {
+          processed: processed.length,
+          resolved: resolvedRetries.length
+        });
+      }
+    } catch (error) {
+      logger.error('Failed to process oracle retry queue:', error);
+    }
+  }
+
+  async resolveMarketFromOracleRetry(retry) {
+    const marketId = retry.item?.marketId;
+    const oracleResult = retry.result;
+
+    if (!marketId || !oracleResult) {
+      return;
+    }
+
+    const market = await Market.findOne({ marketId });
+
+    if (!market) {
+      logger.error('Oracle retry resolved unknown market', {
+        marketId,
+        queueId: retry.item?.id
+      });
+      return;
+    }
+
+    if (market.status === 'resolved') {
+      logger.oracle('Oracle retry skipped already resolved market', {
+        marketId,
+        queueId: retry.item?.id
+      });
+      return;
+    }
+
+    market.resolve(oracleResult.outcome, 'oracle', oracleResult.transactionHash);
+    await market.save();
+
+    websocketHandler.sendUserNotification(market.creatorWalletAddress, {
+      type: 'market_resolved',
+      marketId: market.marketId,
+      title: 'Market Resolved',
+      message: `Your market "${market.question}" was resolved by a retried oracle request.`
+    });
+
+    logger.oracle('Market resolved from oracle retry queue', {
+      marketId,
+      queueId: retry.item?.id,
+      outcome: oracleResult.outcome,
+      attempts: retry.item?.attempts
+    });
   }
 
   // Update market statistics
