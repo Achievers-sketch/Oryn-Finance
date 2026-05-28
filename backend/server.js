@@ -28,6 +28,10 @@ const oracleRoutes = require('./src/routes/oracle');
 const liquidityRoutes = require('./src/routes/liquidity');
 const pushNotificationRoutes = require('./src/routes/pushNotifications');
 const marketDepthRoutes = require('./src/routes/marketDepth');
+const crossChainRoutes = require('./src/routes/crossChain');
+const insuranceRoutes = require('./src/routes/insurance');
+const riskAnalyticsRoutes = require('./src/routes/riskAnalytics');
+const sentimentRoutes = require('./src/routes/sentiment');
 
 
 // Import services
@@ -211,6 +215,10 @@ class OrynBackendServer {
     this.app.use('/api/analytics', analyticsRoutes);
     this.app.use('/api/liquidity', liquidityRoutes);
     this.app.use('/api/market-depth', marketDepthRoutes);
+    this.app.use('/api/cross-chain', crossChainRoutes);
+    this.app.use('/api/insurance', insuranceRoutes);
+    this.app.use('/api/risk', riskAnalyticsRoutes);
+    this.app.use('/api/sentiment', sentimentRoutes);
 
     // Transaction routes (mixed auth - some endpoints require auth, others don't)
     this.app.use('/api/transactions', transactionRoutes);

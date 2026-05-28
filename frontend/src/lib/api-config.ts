@@ -106,6 +106,30 @@ export const ENDPOINTS = {
   LIQUIDITY_RECORD_FEE: (positionId: string) => `/liquidity-positions/positions/${positionId}/fees`,
   LIQUIDITY_CALCULATE_IL: (positionId: string) => `/liquidity-positions/positions/${positionId}/calculate-il`,
 
+  // Cross-Chain Monitoring (#119)
+  CROSS_CHAIN_TRACK: '/cross-chain/track',
+  CROSS_CHAIN_LIST: '/cross-chain/list',
+  CROSS_CHAIN_FAILURES: '/cross-chain/failures',
+  CROSS_CHAIN_STATS: '/cross-chain/stats',
+  CROSS_CHAIN_TX: (txId: string) => `/cross-chain/tx/${txId}`,
+  CROSS_CHAIN_RECOVER: (txId: string) => `/cross-chain/tx/${txId}/recover`,
+
+  // Insurance Claims (#118)
+  INSURANCE_CLAIMS: '/insurance/claims',
+  INSURANCE_CLAIM: (claimId: string) => `/insurance/claims/${claimId}`,
+  INSURANCE_CLAIM_REVIEW: (claimId: string) => `/insurance/claims/${claimId}/review`,
+  INSURANCE_CLAIM_PAYOUT: (claimId: string) => `/insurance/claims/${claimId}/payout`,
+  INSURANCE_STATS: '/insurance/claims/stats',
+
+  // Risk Analytics (#117)
+  RISK_EXPOSURE: '/risk/exposure',
+  RISK_DIVERSIFICATION: '/risk/diversification',
+  RISK_VOLATILITY: '/risk/volatility',
+
+  // Market Sentiment (#116)
+  SENTIMENT_AGGREGATED: '/sentiment/aggregated',
+  SENTIMENT_MARKET: (marketId: string) => `/sentiment/market/${marketId}`,
+
   // Admin
   ADMIN_DASHBOARD: '/admin/dashboard',
   ADMIN_USERS: '/admin/users',
