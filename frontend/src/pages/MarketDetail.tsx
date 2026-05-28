@@ -15,6 +15,7 @@ import { CountdownTimer } from '@/components/ui/CountdownTimer';
 import { ResolutionPanel } from '@/components/ResolutionPanel';
 import { OddsChart } from '@/components/OddsChart';
 import { CreatorReputation } from '@/components/markets/CreatorReputation';
+import MarketDepthChart from '@/components/markets/MarketDepthChart';
 import { useMarketUpdates } from '@/contexts/WebSocketContext';
 import { useOffline } from '@/hooks/useOffline';
 import { useI18n } from '@/i18n';
@@ -529,6 +530,13 @@ export default function MarketDetail() {
                 initialVolume={currentMarket.volume}
               />
             </div>
+
+            {/* Market Depth Visualization */}
+            <MarketDepthChart
+              marketId={currentMarket.id}
+              tokenType={position.toLowerCase() as 'yes' | 'no'}
+              className="glass-card"
+            />
 
             {/* Recent Trades */}
             <div className="glass-card p-6">

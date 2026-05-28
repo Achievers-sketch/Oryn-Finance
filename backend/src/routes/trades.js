@@ -48,4 +48,9 @@ router.get('/pending',
   asyncHandler(tradeController.getPendingTrades)
 );
 
+// Get batch execution statistics
+router.get('/batch/stats',
+  asyncHandler(tradeController.getBatchStats)
+);
+
 module.exports = router;

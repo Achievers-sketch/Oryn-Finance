@@ -224,9 +224,11 @@ pub enum OrynError {
 
     ProposalNotFound = 40,
     VotingPeriodEnded = 41,
-    AlreadyVoted = 42,
-    InsufficientVotingPower = 43,
-    QuorumNotReached = 44,
+    VotingPeriodActive = 42,
+    AlreadyVoted = 43,
+    InsufficientVotingPower = 44,
+    QuorumNotReached = 45,
+    ProposalNotSucceeded = 46,
 
     InsufficientReserves = 50,
     InvalidK = 51,

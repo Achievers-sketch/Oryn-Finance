@@ -1,6 +1,7 @@
 const { Trade, Market, User, Position } = require('../models');
 const stellarService = require('../services/stellarService');
 const sorobanService = require('../services/sorobanService');
+const tradeBatcher = require('../services/tradeBatcher');
 const logger = require('../config/logger');
 const { NotFoundError, ValidationError, StellarError } = require('../middleware/errorHandler');
 const websocketHandler = require('../services/websocketHandler');
@@ -113,91 +114,19 @@ class TradeController {
 
       await trade.save();
 
-      // Execute trade on Stellar/Soroban
-      let stellarResult;
-
-      if (market.metadata?.contractAddress) {
-        stellarResult = await sorobanService.executeTrade(
-          stellarService.adminKeypair,
-          market.metadata.contractAddress,
-          {
-            tokenType,
-            tradeType,
-            amount: effectiveAmount,
-            maxSlippage,
-            deadline: Math.floor(Date.now() / 1000) + 300
-          }
-        );
-      } else {
-        const asset = tokenType === 'yes'
-          ? new stellarService.Asset(market.yesTokenAssetCode, market.yesTokenIssuer)
-          : new stellarService.Asset(market.noTokenAssetCode, market.noTokenIssuer);
-
-        stellarResult = await stellarService.placeOrder(
-          stellarService.adminKeypair,
-          tradeType === 'buy' ? stellarService.Asset.native() : asset,
-          tradeType === 'buy' ? asset : stellarService.Asset.native(),
-          effectiveAmount,
-          expectedPrice
-        );
-      }
-
-      trade.stellarTransactionHash = stellarResult.hash || stellarResult.transactionHash;
-      trade.status = isPartial ? 'partially_filled' : 'confirmed';
-
-      const newYesPrice = tokenType === 'yes' && tradeType === 'buy'
-        ? Math.min(0.99, market.currentYesPrice + priceImpact * fillRatio)
-        : market.currentYesPrice;
-      const newNoPrice = 1.0 - newYesPrice;
-
-      market.updatePrices(newYesPrice, newNoPrice);
-      market.addTrade(totalCost);
-
-      trade.marketPrices.yesPriceAfter = newYesPrice;
-      trade.marketPrices.noPriceAfter = newNoPrice;
-
-      await Promise.all([trade.save(), market.save()]);
-
-      // Update or create user position
-      let position = await Position.findOne({
+      // Add trade to batcher for efficient execution
+      tradeBatcher.addTrade({
+        tradeId,
         marketId,
         userWalletAddress: req.user.walletAddress,
+        tradeType,
         tokenType,
-        status: 'active'
+        amount: effectiveAmount,
+        price: expectedPrice,
+        maxSlippage
       });
 
-      if (!position) {
-        position = new Position({
-          marketId,
-          userWalletAddress: req.user.walletAddress,
-          tokenType,
-          totalShares: 0,
-          averageEntryPrice: 0,
-          totalCostBasis: 0
-        });
-      }
-
-      position.addTrade(trade);
-      await position.save();
-
-      const user = await User.findOne({ walletAddress: req.user.walletAddress });
-      if (user) {
-        user.updateStats(trade);
-        const previousScore = user.reputationScore;
-        user.recomputeReputationFromStats();
-        await user.save();
-
-        if (user.reputationScore !== previousScore) {
-          websocketHandler.sendUserNotification(req.user.walletAddress, {
-            type: 'reputation_update',
-            reputationScore: user.reputationScore,
-            previousScore,
-            level: user.level
-          });
-        }
-      }
-
-      logger.trade('Trade executed', {
+      logger.trade('Trade queued for batch execution', {
         tradeId,
         marketId,
         user: req.user.walletAddress,
@@ -208,12 +137,8 @@ class TradeController {
         remainingAmount,
         isPartial,
         price: expectedPrice,
-        txHash: stellarResult.hash || stellarResult.transactionHash
+        txHash: 'pending_batch'
       });
-
-      const message = isPartial
-        ? `Order partially filled: ${filledAmount.toFixed(4)} of ${amount} filled. ${remainingAmount.toFixed(4)} remaining due to insufficient liquidity.`
-        : 'Trade executed successfully';
 
       res.status(201).json({
         success: true,
@@ -232,21 +157,14 @@ class TradeController {
             totalCost,
             fees: trade.fees,
             slippage: priceImpact,
-            transactionHash: trade.stellarTransactionHash,
-            status: trade.status,
-            timestamp: trade.timestamp
-          },
-          newMarketPrices: {
-            yes: newYesPrice,
-            no: newNoPrice
-          },
-          userPosition: {
-            totalShares: position.totalShares,
-            averageEntryPrice: position.averageEntryPrice,
-            unrealizedPnL: position.unrealizedPnL
+            status: 'pending_batch',
+            timestamp: trade.timestamp,
+            batchExecution: true
           }
         },
-        message
+        message: isPartial
+          ? `Order queued for batch execution: ${filledAmount.toFixed(4)} of ${amount} will be filled. ${remainingAmount.toFixed(4)} remaining due to insufficient liquidity.`
+          : 'Trade queued for batch execution to optimize gas costs'
       });
     } catch (error) {
       await Trade.updateOne(
@@ -567,6 +485,19 @@ class TradeController {
     res.json({
       success: true,
       data: { trades }
+    });
+  }
+
+  // Get batch execution statistics
+  static async getBatchStats(req, res) {
+    const stats = tradeBatcher.getBatchStats();
+    
+    res.json({
+      success: true,
+      data: {
+        batchStats: stats,
+        description: 'Real-time batch execution statistics'
+      }
     });
   }
 }

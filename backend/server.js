@@ -27,6 +27,7 @@ const adminRoutes = require('./src/routes/admin');
 const oracleRoutes = require('./src/routes/oracle');
 const liquidityRoutes = require('./src/routes/liquidity');
 const pushNotificationRoutes = require('./src/routes/pushNotifications');
+const marketDepthRoutes = require('./src/routes/marketDepth');
 
 
 // Import services
@@ -36,6 +37,8 @@ const contractEventIndexer = require('./src/services/contractEventIndexer');
 const transactionRetryQueue = require('./src/services/transactionRetryQueue'); // Issue #23
 const pushNotificationService = require('./src/services/pushNotificationService');
 const encryptionService = require('./src/services/encryptionService');
+const redisAdapter = require('./src/services/redisAdapter');
+const tradeBatcher = require('./src/services/tradeBatcher');
 
 class OrynBackendServer {
   constructor() {
@@ -102,6 +105,15 @@ class OrynBackendServer {
 
       // Setup graceful shutdown
       this.setupGracefulShutdown();
+
+      // Initialize Redis adapter for scaling
+      try {
+        await redisAdapter.initialize();
+        logger.info('Redis adapter initialized for WebSocket scaling');
+      } catch (error) {
+        logger.warn('Redis adapter initialization failed:', error.message);
+        logger.warn('WebSocket scaling will be disabled');
+      }
 
       logger.info('Server initialized successfully');
     } catch (error) {
@@ -198,6 +210,7 @@ class OrynBackendServer {
     this.app.use('/api/leaderboard', leaderboardRoutes);
     this.app.use('/api/analytics', analyticsRoutes);
     this.app.use('/api/liquidity', liquidityRoutes);
+    this.app.use('/api/market-depth', marketDepthRoutes);
 
     // Transaction routes (mixed auth - some endpoints require auth, others don't)
     this.app.use('/api/transactions', transactionRoutes);
@@ -293,6 +306,22 @@ class OrynBackendServer {
             logger.info('Contract event indexer stopped');
           } catch (error) {
             logger.warn('Error stopping contract event indexer:', error.message);
+          }
+
+          // Process all pending trades before shutdown
+          try {
+            await tradeBatcher.processAllPending();
+            logger.info('All pending trades processed');
+          } catch (error) {
+            logger.warn('Error processing pending trades:', error.message);
+          }
+
+          // Disconnect Redis adapter
+          try {
+            await redisAdapter.disconnect();
+            logger.info('Redis adapter disconnected');
+          } catch (error) {
+            logger.warn('Error disconnecting Redis adapter:', error.message);
           }
 
           logger.info('Graceful shutdown completed');

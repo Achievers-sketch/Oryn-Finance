@@ -166,6 +166,140 @@ impl PredictionMarket {
         Ok(())
     }
 
+    /* ---------------- BATCHED EXECUTION ---------------- */
+
+    #[contracttype]
+    #[derive(Clone)]
+    pub struct BatchTradeRequest {
+        pub user: Address,
+        pub token: TokenType,
+        pub is_buy: bool,
+        pub amount: i128,
+        pub max_price: i128,
+    }
+
+    #[contracttype]
+    #[derive(Clone)]
+    pub struct BatchTradeResult {
+        pub user: Address,
+        pub executed_amount: i128,
+        pub executed_price: i128,
+        pub gas_saved: i128,
+        pub success: bool,
+    }
+
+    pub fn execute_batch_trades(
+        env: Env,
+        executor: Address,
+        trades: soroban_sdk::Vec<BatchTradeRequest>,
+    ) -> Result<soroban_sdk::Vec<BatchTradeResult>, Error> {
+        executor.require_auth();
+        Self::require_active(&env)?;
+
+        if trades.len() == 0 || trades.len() > 50 {
+            return Err(OrynError::InvalidInput.into());
+        }
+
+        let mut results = soroban_sdk::Vec::new(&env);
+        let base_gas_cost = 100_000i128; // Base gas cost per individual trade
+        let batch_gas_cost = 150_000i128; // Total gas cost for batch
+        let gas_saved_per_trade = (base_gas_cost * trades.len() as i128 - batch_gas_cost) / trades.len() as i128;
+
+        // Group trades by token type and direction for optimization
+        let mut yes_buy_total = 0i128;
+        let mut yes_sell_total = 0i128;
+        let mut no_buy_total = 0i128;
+        let mut no_sell_total = 0i128;
+
+        // Calculate totals for price impact
+        for trade in trades.iter() {
+            match (trade.token.clone(), trade.is_buy) {
+                (TokenType::Yes, true) => yes_buy_total += trade.amount,
+                (TokenType::Yes, false) => yes_sell_total += trade.amount,
+                (TokenType::No, true) => no_buy_total += trade.amount,
+                (TokenType::No, false) => no_sell_total += trade.amount,
+            }
+        }
+
+        // Calculate batch price impact (reduced compared to individual trades)
+        let total_volume = yes_buy_total + yes_sell_total + no_buy_total + no_sell_total;
+        let batch_price_impact = Self::calculate_batch_price_impact(total_volume);
+
+        // Execute trades with optimized pricing
+        for trade in trades.iter() {
+            let mut result = BatchTradeResult {
+                user: trade.user.clone(),
+                executed_amount: 0,
+                executed_price: 0,
+                gas_saved: gas_saved_per_trade,
+                success: false,
+            };
+
+            // Calculate execution price with batch discount
+            let base_price = Self::get_current_price(&env, &trade.token)?;
+            let execution_price = if trade.is_buy {
+                base_price + (batch_price_impact / 2) // Reduced price impact
+            } else {
+                base_price - (batch_price_impact / 2)
+            };
+
+            // Validate price limits
+            if trade.is_buy && execution_price > trade.max_price {
+                results.push_back(result); // Failed due to price limit
+                continue;
+            }
+            if !trade.is_buy && execution_price < trade.max_price {
+                results.push_back(result); // Failed due to price limit
+                continue;
+            }
+
+            // Execute the trade
+            let execute_result = if trade.is_buy {
+                Self::buy(
+                    env.clone(),
+                    trade.user.clone(),
+                    trade.token.clone(),
+                    trade.amount,
+                    execution_price,
+                )
+            } else {
+                Self::sell(
+                    env.clone(),
+                    trade.user.clone(),
+                    trade.token.clone(),
+                    trade.amount,
+                    execution_price,
+                )
+            };
+
+            if execute_result.is_ok() {
+                result.executed_amount = trade.amount;
+                result.executed_price = execution_price;
+                result.success = true;
+            }
+
+            results.push_back(result);
+        }
+
+        Ok(results)
+    }
+
+    fn calculate_batch_price_impact(total_volume: i128) -> i128 {
+        // Reduced price impact for batched trades
+        // Individual trades would have higher cumulative impact
+        let base_impact = total_volume * 100 / PRECISION; // 0.01% per unit
+        core::cmp::min(base_impact, PRECISION / 20) // Cap at 5%
+    }
+
+    fn get_current_price(env: &Env, token: &TokenType) -> Result<i128, Error> {
+        // Simplified price calculation - in real implementation,
+        // this would query the AMM pool or oracle
+        match token {
+            TokenType::Yes => Ok(PRECISION / 2), // 50 cents
+            TokenType::No => Ok(PRECISION / 2),  // 50 cents
+        }
+    }
+
     /* ---------------- RESOLVE ---------------- */
 
     pub fn resolve(

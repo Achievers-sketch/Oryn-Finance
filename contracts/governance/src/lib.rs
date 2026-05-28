@@ -237,12 +237,29 @@ impl GovernanceContract {
             .ok_or(OrynError::ProposalNotFound)?;
 
         if proposal.executed {
-    return Err(OrynError::InvalidInput.into());
-}
+            return Err(OrynError::InvalidInput.into());
+        }
 
+        // Check if voting period has ended
+        if env.ledger().timestamp() <= proposal.voting_period_end {
+            return Err(OrynError::VotingPeriodActive.into());
+        }
+
+        // Validate quorum and approval thresholds
+        let state = Self::get_proposal_state(env.clone(), proposal_id)?;
+        if state != ProposalState::Succeeded {
+            return Err(OrynError::ProposalNotSucceeded.into());
+        }
 
         proposal.executed = true;
         env.storage().persistent().set(&StorageKey::Proposal(proposal_id), &proposal);
+
+        // Add to executed proposals list
+        let mut executed: Vec<u64> = env.storage().persistent()
+            .get(&StorageKey::ExecutedProposals)
+            .unwrap_or(Vec::new(&env));
+        executed.push_back(proposal_id);
+        env.storage().persistent().set(&StorageKey::ExecutedProposals, &executed);
 
         env.events().publish(
             (symbol_short!("proposal"), symbol_short!("executed")),
@@ -254,6 +271,108 @@ impl GovernanceContract {
         );
 
         Ok(())
+    }
+
+    // Get proposal state with quorum validation
+    pub fn get_proposal_state(env: Env, proposal_id: u64) -> Result<ProposalState, Error> {
+        let proposal: Proposal = env.storage().persistent()
+            .get(&StorageKey::Proposal(proposal_id))
+            .ok_or(OrynError::ProposalNotFound)?;
+
+        if proposal.cancelled {
+            return Ok(ProposalState::Cancelled);
+        }
+
+        if proposal.executed {
+            return Ok(ProposalState::Executed);
+        }
+
+        let now = env.ledger().timestamp();
+        
+        if now <= proposal.voting_period_end {
+            return Ok(ProposalState::Active);
+        }
+
+        // Voting period ended, check quorum and approval
+        let total_votes = proposal.for_votes + proposal.against_votes + proposal.abstain_votes;
+        let quorum_threshold: i128 = env.storage().persistent()
+            .get(&StorageKey::QuorumThreshold)
+            .unwrap_or(1000 * PRECISION);
+        let approval_threshold: i128 = env.storage().persistent()
+            .get(&StorageKey::ApprovalThreshold)
+            .unwrap_or(5000); // 50%
+
+        // Check quorum (minimum participation)
+        if total_votes < quorum_threshold {
+            return Ok(ProposalState::Failed);
+        }
+
+        // Check approval (for votes vs total votes)
+        let approval_rate = if total_votes > 0 {
+            (proposal.for_votes * 10000) / total_votes
+        } else {
+            0
+        };
+
+        if approval_rate >= approval_threshold {
+            Ok(ProposalState::Succeeded)
+        } else {
+            Ok(ProposalState::Failed)
+        }
+    }
+
+    // Set quorum threshold (admin only)
+    pub fn set_quorum_threshold(env: Env, admin: Address, threshold: i128) -> Result<(), Error> {
+        admin.require_auth();
+        let stored_admin: Address = env.storage().persistent()
+            .get(&StorageKey::Admin)
+            .ok_or(OrynError::Unauthorized)?;
+        
+        if admin != stored_admin {
+            return Err(OrynError::Unauthorized.into());
+        }
+
+        if threshold <= 0 || threshold > 10000 * PRECISION {
+            return Err(OrynError::InvalidInput.into());
+        }
+
+        env.storage().persistent().set(&StorageKey::QuorumThreshold, &threshold);
+        Ok(())
+    }
+
+    // Set approval threshold (admin only)
+    pub fn set_approval_threshold(env: Env, admin: Address, threshold: i128) -> Result<(), Error> {
+        admin.require_auth();
+        let stored_admin: Address = env.storage().persistent()
+            .get(&StorageKey::Admin)
+            .ok_or(OrynError::Unauthorized)?;
+        
+        if admin != stored_admin {
+            return Err(OrynError::Unauthorized.into());
+        }
+
+        if threshold <= 0 || threshold > 10000 {
+            return Err(OrynError::InvalidInput.into());
+        }
+
+        env.storage().persistent().set(&StorageKey::ApprovalThreshold, &threshold);
+        Ok(())
+    }
+
+    // Get voting statistics for a proposal
+    pub fn get_voting_stats(env: Env, proposal_id: u64) -> Result<(i128, i128, i128, i128, bool), Error> {
+        let proposal: Proposal = env.storage().persistent()
+            .get(&StorageKey::Proposal(proposal_id))
+            .ok_or(OrynError::ProposalNotFound)?;
+
+        let total_votes = proposal.for_votes + proposal.against_votes + proposal.abstain_votes;
+        let quorum_threshold: i128 = env.storage().persistent()
+            .get(&StorageKey::QuorumThreshold)
+            .unwrap_or(1000 * PRECISION);
+        
+        let quorum_met = total_votes >= quorum_threshold;
+
+        Ok((proposal.for_votes, proposal.against_votes, proposal.abstain_votes, total_votes, quorum_met))
     }
 
     // ---------------- HELPERS ----------------

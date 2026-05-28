@@ -1,4 +1,5 @@
 const logger = require('../config/logger');
+const redisAdapter = require('./redisAdapter');
 
 const UPDATE_THROTTLE_MS = 100;
 const MAX_PAYLOAD_SIZE = 1024;
@@ -33,6 +34,9 @@ class WebSocketHandler {
 
   initialize(io) {
     this.io = io;
+
+    // Initialize Redis adapter for scaling
+    this.initializeRedisScaling();
 
     io.on('connection', (socket) => {
       logger.websocket('Client connected', { socketId: socket.id });
@@ -99,6 +103,57 @@ class WebSocketHandler {
     this.startHeartbeat();
 
     logger.websocket('WebSocket server initialized');
+  }
+
+  async initializeRedisScaling() {
+    try {
+      await redisAdapter.initialize();
+      
+      // Subscribe to cross-instance events
+      await redisAdapter.subscribe('market_updates', (data) => {
+        this.handleCrossInstanceMarketUpdate(data);
+      });
+      
+      await redisAdapter.subscribe('user_notifications', (data) => {
+        this.handleCrossInstanceUserNotification(data);
+      });
+      
+      await redisAdapter.subscribe('announcements', (data) => {
+        this.handleCrossInstanceAnnouncement(data);
+      });
+
+      logger.websocket('Redis scaling initialized');
+    } catch (error) {
+      logger.warn('Redis scaling disabled:', error.message);
+    }
+  }
+
+  handleCrossInstanceMarketUpdate(data) {
+    if (!this.io) return;
+    
+    const roomName = `market_${data.marketId}`;
+    this.io.to(roomName).emit('market_update', data.payload);
+    
+    if (data.globalUpdate) {
+      this.io.to(GLOBAL_SUBSCRIBERS_ROOM).emit('global_market_update', data.globalPayload);
+    }
+  }
+
+  handleCrossInstanceUserNotification(data) {
+    if (!this.io) return;
+    
+    const userSockets = Array.from(this.connectedUsers.entries())
+      .filter(([_, userData]) => userData.walletAddress === data.walletAddress)
+      .map(([socketId]) => socketId);
+
+    userSockets.forEach(socketId => {
+      this.io.to(socketId).emit('notification', data.notification);
+    });
+  }
+
+  handleCrossInstanceAnnouncement(data) {
+    if (!this.io) return;
+    this.io.emit('announcement', data.announcement);
   }
 
   startHeartbeat() {
@@ -318,6 +373,19 @@ class WebSocketHandler {
 
     this.io.to(roomName).emit('market_update', payload);
 
+    // Publish to Redis for cross-instance sync
+    redisAdapter.publish('market_updates', {
+      marketId,
+      payload,
+      globalUpdate: true,
+      globalPayload: {
+        marketId,
+        type: updateData.type,
+        ts: now,
+        sq: sequenceNumber
+      }
+    });
+
     // Only send the lightweight summary to clients who explicitly opted in to global updates
     this.io.to(GLOBAL_SUBSCRIBERS_ROOM).emit('global_market_update', {
       marketId,
@@ -494,6 +562,15 @@ class WebSocketHandler {
       });
     });
 
+    // Publish to Redis for cross-instance sync
+    redisAdapter.publish('user_notifications', {
+      walletAddress: walletAddress.toLowerCase(),
+      notification: {
+        ts: Date.now(),
+        ...stripped
+      }
+    });
+
     logger.websocket('User notification sent', {
       walletAddress,
       socketsCount: userSockets.length,
@@ -507,6 +584,14 @@ class WebSocketHandler {
     this.io.emit('announcement', {
       ts: Date.now(),
       ...announcement
+    });
+
+    // Publish to Redis for cross-instance sync
+    redisAdapter.publish('announcements', {
+      announcement: {
+        ts: Date.now(),
+        ...announcement
+      }
     });
 
     logger.websocket('Platform announcement broadcast', {
