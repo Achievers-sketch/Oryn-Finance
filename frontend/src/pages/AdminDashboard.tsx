@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import {
   Shield, Users, BarChart3, Activity, AlertTriangle,
   RefreshCw, Search, CheckCircle, XCircle, Settings,
-  TrendingUp, DollarSign, Clock, ChevronDown, ChevronUp, Wallet
+  TrendingUp, DollarSign, Clock, ChevronDown, ChevronUp, Wallet,
+  FileText, ShieldCheck, RotateCcw, Eye
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -86,6 +87,13 @@ function AdminContent({ authToken }: { authToken: string }) {
   const [users, setUsers] = useState<any[]>([]);
   const [pendingTrades, setPendingTrades] = useState<any[]>([]);
   const [config, setConfig] = useState<any>(null);
+  const [contractAudit, setContractAudit] = useState<any>(null);
+  const [contractGraph, setContractGraph] = useState<any>(null);
+  const [contractFlow, setContractFlow] = useState<any>(null);
+  const [dependencyConflicts, setDependencyConflicts] = useState<any>(null);
+  const [oracleHealth, setOracleHealth] = useState<any>(null);
+  const [incidentFailures, setIncidentFailures] = useState<any[]>([]);
+  const [contractHealth, setContractHealth] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState('');
@@ -98,17 +106,31 @@ function AdminContent({ authToken }: { authToken: string }) {
     try {
       setLoading(true);
       setError(null);
-      const [dash, usersData, tradesData, cfgData] = await Promise.allSettled([
+      const [dash, usersData, tradesData, cfgData, auditData, graphData, flowData, conflictsData, oracleData, failuresData, contractsHealthData] = await Promise.allSettled([
         apiService.admin.getDashboard(authToken),
         apiService.admin.getUsers(authToken, { limit: 100 }),
         apiService.admin.getPendingTrades(authToken, { limit: 50 }),
         apiService.admin.getConfig(authToken),
+        apiService.contracts.getVersionAudit('1.0.0'),
+        apiService.contracts.getDependencyGraph(),
+        apiService.contracts.getDependencyFlow(),
+        apiService.contracts.getDependencyConflicts(),
+        apiService.contracts.getOracleHealth(),
+        apiService.crossChain.getFailures(),
+        apiService.health.getContractsHealth(),
       ]);
 
       if (dash.status === 'fulfilled') setDashboard(dash.value);
       if (usersData.status === 'fulfilled') setUsers(Array.isArray(usersData.value) ? usersData.value : usersData.value?.users || []);
       if (tradesData.status === 'fulfilled') setPendingTrades(Array.isArray(tradesData.value) ? tradesData.value : tradesData.value?.trades || []);
       if (cfgData.status === 'fulfilled') setConfig(cfgData.value);
+      if (auditData.status === 'fulfilled') setContractAudit(auditData.value);
+      if (graphData.status === 'fulfilled') setContractGraph(graphData.value);
+      if (flowData.status === 'fulfilled') setContractFlow(flowData.value);
+      if (conflictsData.status === 'fulfilled') setDependencyConflicts(conflictsData.value);
+      if (oracleData.status === 'fulfilled') setOracleHealth(oracleData.value);
+      if (failuresData.status === 'fulfilled') setIncidentFailures(Array.isArray(failuresData.value) ? failuresData.value : failuresData.value?.data || []);
+      if (contractsHealthData.status === 'fulfilled') setContractHealth(contractsHealthData.value);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load admin data');
     } finally {
@@ -167,6 +189,15 @@ function AdminContent({ authToken }: { authToken: string }) {
     </button>
   );
 
+  const contractNodes = contractGraph?.nodes || [];
+  const contractFlowItems = contractFlow?.flow || [];
+  const contractAudits = contractAudit?.contracts || [];
+  const auditOutdated = contractAudits.filter((item: any) => !item.isUpToDate);
+  const oracleSources = oracleHealth?.sources || [];
+  const unhealthyOracleSources = oracleSources.filter((source: any) => !source.isHealthy);
+  const failedIncidents = incidentFailures || [];
+  const contractIntegrationSummary = contractHealth?.summary || {};
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-12">
@@ -195,6 +226,8 @@ function AdminContent({ authToken }: { authToken: string }) {
           <TabsList className="mb-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="treasury">Treasury</TabsTrigger>
+            <TabsTrigger value="audit">Contract Audit</TabsTrigger>
+            <TabsTrigger value="incidents">Incidents</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="trades">Pending Trades</TabsTrigger>
             <TabsTrigger value="config">Config</TabsTrigger>
@@ -305,6 +338,173 @@ function AdminContent({ authToken }: { authToken: string }) {
                   Open Treasury Dashboard
                 </Button>
               </Link>
+            </div>
+          </TabsContent>
+
+          {/* ── Contract Audit ───────────────────────────────────────────── */}
+          <TabsContent value="audit">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+              {[
+                { label: 'Contracts Audited', value: contractAudits.length || contractNodes.length || 0, icon: FileText, color: 'text-blue-400' },
+                { label: 'Outdated', value: auditOutdated.length, icon: AlertTriangle, color: 'text-yellow-400' },
+                { label: 'Conflicts', value: dependencyConflicts?.criticalCount || 0, icon: ShieldCheck, color: 'text-red-400' },
+                { label: 'Flow Steps', value: contractFlowItems.length || 0, icon: Activity, color: 'text-green-400' },
+              ].map(({ label, value, icon: Icon, color }) => (
+                <MagicCard key={label} className="glass-card p-5" gradientColor="#262626">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm text-muted-foreground">{label}</p>
+                    <Icon className={`w-4 h-4 ${color}`} />
+                  </div>
+                  <p className="text-2xl font-bold">{value}</p>
+                </MagicCard>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+              <MagicCard className="glass-card p-6" gradientColor="#262626">
+                <h2 className="font-semibold mb-4 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-green-400" /> Version Audit
+                </h2>
+                {contractAudits.length === 0 ? (
+                  <p className="text-muted-foreground text-sm py-10 text-center">No contract audit data available.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {contractAudits.slice(0, 8).map((contract: any) => (
+                      <div key={contract.contractName} className="flex items-center justify-between gap-4 py-2 border-b border-border/20 last:border-0">
+                        <div>
+                          <p className="font-medium">{contract.contractName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Minimum {contract.minimumVersion} · {shortAddr(contract.address || '')}
+                          </p>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={contract.isUpToDate ? 'text-green-400 border-green-400/30' : 'text-yellow-400 border-yellow-400/30'}
+                        >
+                          {contract.isUpToDate ? 'Current' : 'Needs update'}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </MagicCard>
+
+              <MagicCard className="glass-card p-6" gradientColor="#262626">
+                <h2 className="font-semibold mb-4 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-blue-400" /> Dependency Flow
+                </h2>
+                {contractFlowItems.length === 0 ? (
+                  <p className="text-muted-foreground text-sm py-10 text-center">No dependency flow available.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {contractFlowItems.slice(0, 8).map((step: any) => (
+                      <div key={step.contractName} className="flex items-center justify-between gap-4 py-2 border-b border-border/20 last:border-0">
+                        <div>
+                          <p className="font-medium">{step.order}. {step.contractName}</p>
+                          <p className="text-xs text-muted-foreground">{step.description}</p>
+                        </div>
+                        <Badge variant="outline" className={step.isDeployed ? 'text-green-400 border-green-400/30' : 'text-yellow-400 border-yellow-400/30'}>
+                          {step.isDeployed ? 'Deployed' : 'Missing'}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </MagicCard>
+            </div>
+
+            <MagicCard className="glass-card p-6" gradientColor="#262626">
+              <h2 className="font-semibold mb-4 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-yellow-400" /> Contract Surface
+              </h2>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {contractNodes.slice(0, 8).map((node: any) => (
+                  <div key={node.id} className="rounded-lg border border-border/30 bg-muted/10 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-medium">{node.label}</p>
+                        <p className="text-xs text-muted-foreground">{node.description}</p>
+                      </div>
+                      <Badge variant="outline" className={node.isDeployed ? 'text-green-400 border-green-400/30' : 'text-red-400 border-red-400/30'}>
+                        {node.isDeployed ? 'Live' : 'Missing'}
+                      </Badge>
+                    </div>
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      Dependencies: {node.dependencyCount} · Address: {shortAddr(node.address || '') || 'Not deployed'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </MagicCard>
+          </TabsContent>
+
+          {/* ── Incidents ────────────────────────────────────────────────── */}
+          <TabsContent value="incidents">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+              {[
+                { label: 'Protocol Incidents', value: failedIncidents.length, icon: AlertTriangle, color: 'text-red-400' },
+                { label: 'Oracle Alerts', value: unhealthyOracleSources.length, icon: Eye, color: 'text-yellow-400' },
+                { label: 'Recoverable Tx', value: failedIncidents.length, icon: RotateCcw, color: 'text-blue-400' },
+                { label: 'Healthy Contracts', value: contractIntegrationSummary.reachableContracts ?? '—', icon: ShieldCheck, color: 'text-green-400' },
+              ].map(({ label, value, icon: Icon, color }) => (
+                <MagicCard key={label} className="glass-card p-5" gradientColor="#262626">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm text-muted-foreground">{label}</p>
+                    <Icon className={`w-4 h-4 ${color}`} />
+                  </div>
+                  <p className="text-2xl font-bold">{value}</p>
+                </MagicCard>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+              <MagicCard className="glass-card p-6" gradientColor="#262626">
+                <h2 className="font-semibold mb-4 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400" /> Incident Failures
+                </h2>
+                {failedIncidents.length === 0 ? (
+                  <p className="text-muted-foreground text-sm py-10 text-center">No incident failures recorded.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {failedIncidents.slice(0, 8).map((incident: any) => (
+                      <div key={incident.txId} className="flex items-center justify-between gap-4 py-2 border-b border-border/20 last:border-0">
+                        <div>
+                          <p className="font-medium font-mono text-xs">{incident.txId}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {incident.bridgeChain} · {fmt(Number(incident.amount || 0))}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="text-red-400 border-red-400/30">Failed</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </MagicCard>
+
+              <MagicCard className="glass-card p-6" gradientColor="#262626">
+                <h2 className="font-semibold mb-4 flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-yellow-400" /> Oracle Health
+                </h2>
+                {oracleSources.length === 0 ? (
+                  <p className="text-muted-foreground text-sm py-10 text-center">Oracle health data unavailable.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {oracleSources.slice(0, 8).map((source: any) => (
+                      <div key={source.name} className="flex items-center justify-between gap-4 py-2 border-b border-border/20 last:border-0">
+                        <div>
+                          <p className="font-medium">{source.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Failures: {source.failureCount} · Last failure: {source.lastFailure ? timeAgo(source.lastFailure) : '—'}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className={source.isHealthy ? 'text-green-400 border-green-400/30' : 'text-red-400 border-red-400/30'}>
+                          {source.isHealthy ? 'Healthy' : 'Degraded'}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </MagicCard>
             </div>
           </TabsContent>
 

@@ -98,6 +98,17 @@ export const ENDPOINTS = {
   TREASURY_RECORD_OUTFLOW: '/treasury/distributions',
   TREASURY_RECORD_GOV_ACTION: '/treasury/governance-actions',
 
+  // Contracts
+  CONTRACT_DEPENDENCIES: '/contracts/dependencies',
+  CONTRACT_DEPENDENCY_FLOW: '/contracts/dependencies/flow',
+  CONTRACT_DEPENDENCY_CONFLICTS: '/contracts/dependencies/conflicts',
+  CONTRACT_VERSIONS: '/contracts/versions',
+  CONTRACT_VERSIONS_AUDIT: '/contracts/versions/audit',
+  CONTRACT_VERSIONS_COMPARE: '/contracts/versions/compare',
+
+  // Oracle
+  ORACLE_HEALTH: '/oracle/health',
+
   // Liquidity Positions
   LIQUIDITY_POSITIONS: '/liquidity-positions/positions',
   LIQUIDITY_POSITION: (marketId: string) => `/liquidity-positions/positions/${marketId}`,

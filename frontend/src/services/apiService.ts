@@ -920,6 +920,53 @@ export const treasuryService = {
   },
 };
 
+// Contract Operations Services
+export const contractService = {
+  async getDependencyGraph(): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.CONTRACT_DEPENDENCIES);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch contract dependencies');
+    return response.data;
+  },
+
+  async getDependencyFlow(): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.CONTRACT_DEPENDENCY_FLOW);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch contract dependency flow');
+    return response.data;
+  },
+
+  async getDependencyConflicts(): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.CONTRACT_DEPENDENCY_CONFLICTS);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch contract dependency conflicts');
+    return response.data;
+  },
+
+  async getVersions(): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.CONTRACT_VERSIONS);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch contract versions');
+    return response.data;
+  },
+
+  async getVersionAudit(minimum = '1.0.0'): Promise<any> {
+    const endpoint = `${ENDPOINTS.CONTRACT_VERSIONS_AUDIT}?minimum=${encodeURIComponent(minimum)}`;
+    const response = await apiClient.get(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch contract version audit');
+    return response.data;
+  },
+
+  async compareVersions(a: string, b: string): Promise<any> {
+    const endpoint = `${ENDPOINTS.CONTRACT_VERSIONS_COMPARE}?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`;
+    const response = await apiClient.get(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to compare versions');
+    return response.data;
+  },
+
+  async getOracleHealth(): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.ORACLE_HEALTH);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch oracle health');
+    return response.data;
+  },
+};
+
 // Liquidity Position Services
 export const liquidityPositionService = {
   async getUserPositions(authToken: string, params?: { status?: string }): Promise<any> {
@@ -1099,6 +1146,7 @@ export const apiService = {
   admin: adminService,
   volatility: volatilityService,
   treasury: treasuryService,
+  contracts: contractService,
   liquidityPositions: liquidityPositionService,
   crossChain: crossChainService,
   insurance: insuranceService,

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { ArrowUpRight, Heart, Wallet } from 'lucide-react';
 
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import MarketDepthChart from '@/components/markets/MarketDepthChart';
 import { useMarketUpdates } from '@/contexts/WebSocketContext';
 import { useOffline } from '@/hooks/useOffline';
 import { useI18n } from '@/i18n';
+import { userService } from '@/services/apiService';
 
 function formatVolume(volume: number): string {
   if (volume >= 1000000) return `$${(volume / 1000000).toFixed(2)}M`;
@@ -62,6 +64,8 @@ export default function MarketDetail() {
   const [isLoading, setIsLoading] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [partialFillResult, setPartialFillResult] = useState<PartialFillResult | null>(null);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [txProgress, setTxProgress] = useState<{
     phase: 'idle' | 'building' | 'signing' | 'submitting' | 'confirming' | 'success' | 'error';
     message: string;
@@ -196,6 +200,65 @@ export default function MarketDetail() {
   const tokensReceived = amount ? (parseFloat(amount) / price).toFixed(2) : '0';
   const priceImpact = amount ? Math.min(parseFloat(amount) * 0.001, 2).toFixed(2) : '0';
   const estimatedFee = amount ? (parseFloat(amount) * 0.005).toFixed(4) : '0';
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadFavoriteState = async () => {
+      if (!isConnected || !publicKey || !id) {
+        setIsFavorite(false);
+        return;
+      }
+
+      try {
+        const favorites = await userService.getFavoriteMarkets(publicKey, { limit: 200 });
+        const favoriteMarkets = favorites?.markets || favorites?.favorites || favorites?.data?.markets || [];
+        const currentId = currentMarket.id || id;
+        const match = Array.isArray(favoriteMarkets)
+          ? favoriteMarkets.some((market: any) => (market.marketId || market.id || market._id) === currentId)
+          : false;
+        if (!cancelled) setIsFavorite(match);
+      } catch {
+        if (!cancelled) setIsFavorite(false);
+      }
+    };
+
+    void loadFavoriteState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentMarket.id, id, isConnected, publicKey]);
+
+  const handleFavoriteToggle = async () => {
+    if (!isConnected || !publicKey) {
+      connect();
+      return;
+    }
+
+    setFavoriteLoading(true);
+    try {
+      if (isFavorite) {
+        await userService.removeFavoriteMarket(publicKey, currentMarket.id);
+        setIsFavorite(false);
+        toast.success('Removed from favorites');
+      } else {
+        await userService.addFavoriteMarket(publicKey, currentMarket.id);
+        setIsFavorite(true);
+        toast.success('Added to favorites');
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update favorite market');
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
+
+  const handleQuickTrade = (nextTradeType: 'buy' | 'sell', nextPosition: 'YES' | 'NO') => {
+    setTradeType(nextTradeType);
+    setPosition(nextPosition);
+    document.getElementById('trade-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const handleTradeStart = () => {
     if (isOffline) {
@@ -363,7 +426,7 @@ export default function MarketDetail() {
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 pb-28 lg:pb-8">
         <Link to="/markets" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors">
           <ArrowLeft className="w-4 h-4" />
           {t('market.back')}
@@ -569,7 +632,7 @@ export default function MarketDetail() {
             <CreatorReputation creatorAddress={currentMarket.creator} />
 
             {/* Trading Interface */}
-            <div className="glass-card p-6 sticky top-24">
+            <div id="trade-panel" className="glass-card p-6 sticky top-24">
               <Tabs value={tradeType} onValueChange={(v) => setTradeType(v as 'buy' | 'sell')}>
                 <TabsList className="grid w-full grid-cols-2 mb-4">
                   <TabsTrigger value="buy">{t('market.buy')}</TabsTrigger>
@@ -726,8 +789,122 @@ export default function MarketDetail() {
                 </TabsContent>
 
                 <TabsContent value="sell" className="space-y-4">
-                  <p className="text-center text-muted-foreground py-8">
-                    {t('market.sellPrompt')}
+                  {/* Position Selection */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant={position === 'YES' ? 'default' : 'outline'}
+                      className={position === 'YES' ? 'bg-success hover:bg-success/90' : 'hover:border-success hover:text-success'}
+                      onClick={() => setPosition('YES')}
+                    >
+                      YES {Math.round(liveYesPrice * 100)}¢
+                    </Button>
+                    <Button
+                      variant={position === 'NO' ? 'default' : 'outline'}
+                      className={position === 'NO' ? 'bg-destructive hover:bg-destructive/90' : 'hover:border-destructive hover:text-destructive'}
+                      onClick={() => setPosition('NO')}
+                    >
+                      NO {Math.round(liveNoPrice * 100)}¢
+                    </Button>
+                  </div>
+
+                  {/* Amount Input */}
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-2 block">{t('market.amount')}</label>
+                    <Input
+                      type="number"
+                      placeholder="0.00"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="input-dark text-lg"
+                    />
+                    <div className="flex gap-1.5 mt-2">
+                      {['10', '50', '100', '500'].map((val) => (
+                        <Button
+                          key={val}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs flex-1 border-white/10 hover:border-primary/50 hover:bg-primary/10 transition-all rounded-md"
+                          onClick={() => setAmount(val)}
+                        >
+                          ${val}
+                        </Button>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs flex-1 border-white/10 hover:border-primary/50 hover:bg-primary/10 transition-all rounded-md"
+                        onClick={() => setAmount('1000')}
+                      >
+                        Max
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Trade Summary */}
+                  <div className="p-4 rounded-lg bg-muted/50 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{t('market.receive')}</span>
+                      <span className="font-medium">{tokensReceived} {position}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{t('market.pricePerToken')}</span>
+                      <span>{Math.round(price * 100)}¢</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{t('market.priceImpact')}</span>
+                      <span className="text-warning">{priceImpact}%</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{t('market.fee')}</span>
+                      <span>{estimatedFee} USDC</span>
+                    </div>
+                    {partialFillResult && (
+                      <>
+                        <div className="border-t border-border/50 pt-2 mt-1" />
+                        <div className="flex justify-between text-sm">
+                          <span className="text-success">{t('market.filled')}</span>
+                          <span className="font-medium text-success">{partialFillResult.filledAmount.toFixed(4)} {position}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-warning">{t('market.remaining')}</span>
+                          <span className="font-medium text-warning">{partialFillResult.remainingAmount.toFixed(4)} {position}</span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden mt-1">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-warning to-success"
+                            style={{ width: `${(partialFillResult.fillRatio * 100).toFixed(1)}%` }}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  <Button
+                    className="w-full btn-primary-gradient"
+                    onClick={handleTradeStart}
+                    disabled={isLoading || isOffline || isOptimisticPending}
+                  >
+                    {isLoading || isOptimisticPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        {t('market.confirming')}
+                      </>
+                    ) : isOffline ? (
+                      <>
+                        <WifiOff className="w-4 h-4 mr-2" />
+                        {t('market.tradingDisabled')}
+                      </>
+                    ) : !isConnected ? (
+                      t('market.connectWallet')
+                    ) : (
+                      `Sell ${position}`
+                    )}
+                  </Button>
+
+                  <p className="text-xs text-center text-muted-foreground">
+                    {t('market.settlement')}
                   </p>
                 </TabsContent>
               </Tabs>
@@ -815,6 +992,61 @@ export default function MarketDetail() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/90 backdrop-blur-xl px-4 py-3 shadow-2xl lg:hidden">
+        <div className="mx-auto flex max-w-6xl items-center gap-2 overflow-x-auto">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0 border-white/10 bg-white/5"
+            onClick={() => handleQuickTrade('buy', 'YES')}
+          >
+            Buy YES
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0 border-white/10 bg-white/5"
+            onClick={() => handleQuickTrade('buy', 'NO')}
+          >
+            Buy NO
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0 border-white/10 bg-white/5"
+            onClick={() => handleQuickTrade('sell', position)}
+          >
+            Sell {position}
+          </Button>
+          <Button
+            type="button"
+            variant={isFavorite ? 'default' : 'outline'}
+            size="sm"
+            className="shrink-0"
+            onClick={handleFavoriteToggle}
+            disabled={favoriteLoading}
+          >
+            <Heart className={`mr-2 h-4 w-4 ${isFavorite ? 'fill-current' : ''}`} />
+            {favoriteLoading ? 'Saving...' : isFavorite ? 'Saved' : 'Save'}
+          </Button>
+          <Link to="/portfolio" className="shrink-0">
+            <Button type="button" variant="outline" size="sm" className="border-white/10 bg-white/5">
+              <Wallet className="mr-2 h-4 w-4" />
+              Portfolio
+            </Button>
+          </Link>
+          <Link to="/markets" className="shrink-0">
+            <Button type="button" variant="outline" size="sm" className="border-white/10 bg-white/5">
+              <ArrowUpRight className="mr-2 h-4 w-4" />
+              Markets
+            </Button>
+          </Link>
         </div>
       </div>
 
