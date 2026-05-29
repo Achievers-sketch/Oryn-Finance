@@ -1132,6 +1132,67 @@ export const sentimentService = {
   },
 };
 
+// Governance Delegation Services (#132)
+export const governanceDelegationService = {
+  async getMyDelegation(): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.GOVERNANCE_DELEGATE);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch delegation');
+    return response.data;
+  },
+  async getDashboard(): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.GOVERNANCE_DELEGATE_DASHBOARD);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch delegation dashboard');
+    return response.data;
+  },
+  async delegate(delegateAddress: string): Promise<any> {
+    const response = await apiClient.post(ENDPOINTS.GOVERNANCE_DELEGATE, { delegate: delegateAddress });
+    if (!response.success) throw new Error(response.message || 'Failed to delegate');
+    return response.data;
+  },
+  async revoke(): Promise<any> {
+    const response = await apiClient.delete(ENDPOINTS.GOVERNANCE_DELEGATE);
+    if (!response.success) throw new Error(response.message || 'Failed to revoke delegation');
+    return response.data;
+  },
+};
+
+// Cross-Market Correlation Services (#135)
+export const correlationService = {
+  async getHeatmap(ids: string[]): Promise<any> {
+    const response = await apiClient.get(`${ENDPOINTS.CORRELATION_HEATMAP}?ids=${ids.join(',')}`);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch correlation heatmap');
+    return response.data;
+  },
+  async getRelated(marketId: string, limit = 5): Promise<any> {
+    const response = await apiClient.get(`${ENDPOINTS.CORRELATION_RELATED(marketId)}?limit=${limit}`);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch related markets');
+    return response.data;
+  },
+};
+
+// Custom Market Alerts Services (#138)
+export const marketAlertsService = {
+  async listAlerts(): Promise<any[]> {
+    const response = await apiClient.get(ENDPOINTS.MARKET_ALERTS);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch alerts');
+    return response.data;
+  },
+  async createAlert(payload: { marketId: string; alertType: string; threshold?: number }): Promise<any> {
+    const response = await apiClient.post(ENDPOINTS.MARKET_ALERTS, payload);
+    if (!response.success) throw new Error(response.message || 'Failed to create alert');
+    return response.data;
+  },
+  async updateAlert(alertId: string, payload: { threshold?: number; active?: boolean }): Promise<any> {
+    const response = await apiClient.put(ENDPOINTS.MARKET_ALERT(alertId), payload);
+    if (!response.success) throw new Error(response.message || 'Failed to update alert');
+    return response.data;
+  },
+  async deleteAlert(alertId: string): Promise<void> {
+    const response = await apiClient.delete(ENDPOINTS.MARKET_ALERT(alertId));
+    if (!response.success) throw new Error(response.message || 'Failed to delete alert');
+  },
+};
+
 // Combined API service object
 export const apiService = {
   health: healthService,
@@ -1152,4 +1213,7 @@ export const apiService = {
   insurance: insuranceService,
   risk: riskService,
   sentiment: sentimentService,
+  governanceDelegation: governanceDelegationService,
+  correlation: correlationService,
+  marketAlerts: marketAlertsService,
 };

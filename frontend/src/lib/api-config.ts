@@ -141,6 +141,18 @@ export const ENDPOINTS = {
   SENTIMENT_AGGREGATED: '/sentiment/aggregated',
   SENTIMENT_MARKET: (marketId: string) => `/sentiment/market/${marketId}`,
 
+  // Governance Delegation (#132)
+  GOVERNANCE_DELEGATE: '/governance/delegate',
+  GOVERNANCE_DELEGATE_DASHBOARD: '/governance/delegate/dashboard',
+
+  // Cross-Market Correlation (#135)
+  CORRELATION_HEATMAP: '/correlation/heatmap',
+  CORRELATION_RELATED: (marketId: string) => `/correlation/related/${marketId}`,
+
+  // Custom Market Alerts (#138)
+  MARKET_ALERTS: '/alerts',
+  MARKET_ALERT: (alertId: string) => `/alerts/${alertId}`,
+
   // Admin
   ADMIN_DASHBOARD: '/admin/dashboard',
   ADMIN_USERS: '/admin/users',

@@ -37,6 +37,9 @@ const geoFailoverRoutes = require('./src/routes/geoFailover');
 const explorerRoutes = require('./src/routes/explorer');                   // Issue #83
 const contractVersionRoutes = require('./src/routes/contractVersions');    // Issue #150
 const contractDependencyRoutes = require('./src/routes/contractDependencies'); // Issue #124
+const governanceDelegationRoutes = require('./src/routes/governanceDelegation'); // Issue #132
+const correlationRoutes = require('./src/routes/correlation');                   // Issue #135
+const marketAlertsRoutes = require('./src/routes/marketAlerts');                 // Issue #138
 
 
 // Import services
@@ -241,6 +244,15 @@ class OrynBackendServer {
 
     // Contract dependency mapping routes (Issue #124)
     this.app.use('/api/contracts/dependencies', contractDependencyRoutes);
+
+    // Governance delegation routes (Issue #132)
+    this.app.use('/api/governance/delegate', governanceDelegationRoutes);
+
+    // Cross-market correlation routes (Issue #135)
+    this.app.use('/api/correlation', correlationRoutes);
+
+    // Custom market alerts routes (Issue #138)
+    this.app.use('/api/alerts', marketAlertsRoutes);
 
     // Protected routes
     this.app.use('/api/trades', tradeRoutes);

@@ -28,6 +28,10 @@ import CrossChainMonitor from "./pages/CrossChainMonitor";
 import InsuranceClaims from "./pages/InsuranceClaims";
 import RiskAnalytics from "./pages/RiskAnalytics";
 import MarketSentiment from "./pages/MarketSentiment";
+import GovernanceDelegation from "./pages/GovernanceDelegation";
+import MarketCorrelation from "./pages/MarketCorrelation";
+import MarketAlerts from "./pages/MarketAlerts";
+import ContractVersions from "./pages/ContractVersions";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { useOffline } from "@/hooks/useOffline";
@@ -105,6 +109,10 @@ const App = () => (
                 <Route path="/insurance" element={<InsuranceClaims />} />
                 <Route path="/risk" element={<RiskAnalytics />} />
                 <Route path="/sentiment" element={<MarketSentiment />} />
+                <Route path="/governance/delegation" element={<GovernanceDelegation />} />
+                <Route path="/correlation" element={<MarketCorrelation />} />
+                <Route path="/alerts" element={<MarketAlerts />} />
+                <Route path="/contracts/versions" element={<ContractVersions />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
