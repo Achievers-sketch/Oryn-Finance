@@ -34,6 +34,9 @@ const riskAnalyticsRoutes = require('./src/routes/riskAnalytics');
 const sentimentRoutes = require('./src/routes/sentiment');
 const taxReportsRoutes = require('./src/routes/taxReports');
 const geoFailoverRoutes = require('./src/routes/geoFailover');
+const explorerRoutes = require('./src/routes/explorer');                   // Issue #83
+const contractVersionRoutes = require('./src/routes/contractVersions');    // Issue #150
+const contractDependencyRoutes = require('./src/routes/contractDependencies'); // Issue #124
 
 
 // Import services
@@ -230,7 +233,14 @@ class OrynBackendServer {
     // Push notification routes
     this.app.use('/api/push', pushNotificationRoutes);
 
+    // Explorer deep-linking routes (Issue #83)
+    this.app.use('/api/explorer', explorerRoutes);
 
+    // Contract version management routes (Issue #150)
+    this.app.use('/api/contracts/versions', contractVersionRoutes);
+
+    // Contract dependency mapping routes (Issue #124)
+    this.app.use('/api/contracts/dependencies', contractDependencyRoutes);
 
     // Protected routes
     this.app.use('/api/trades', tradeRoutes);
