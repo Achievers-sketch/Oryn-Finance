@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Trophy, Medal, TrendingUp, Percent, Hash, Star, RefreshCw, Loader2, Target, DollarSign, Award } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Trophy, Medal, TrendingUp, Percent, Hash, Star, RefreshCw, Loader2, Target, DollarSign, Award, BarChart2 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,9 @@ import { MagicCard } from '@/components/magicui/magic-card';
 import { toast } from 'sonner';
 
 type TimeFrame = 'all' | 'monthly' | 'weekly';
-type MetricsTab = 'reputation' | 'winrate' | 'roi';
+type MetricsTab = 'reputation' | 'winrate' | 'roi' | 'category';
+
+const CATEGORIES = ['crypto', 'sports', 'politics', 'economics', 'technology', 'entertainment', 'other'];
 
 interface AdvancedEntry {
   rank: number;
@@ -24,6 +26,12 @@ interface AdvancedEntry {
   profitLoss?: number;
   roi?: number;
   badge?: string;
+}
+
+function winRateColor(rate: number): string {
+  if (rate >= 60) return 'text-success';
+  if (rate >= 50) return 'text-foreground';
+  return 'text-destructive';
 }
 
 function formatReputation(score: number): string {
@@ -54,6 +62,14 @@ export default function Leaderboard() {
   const [mostAccurate, setMostAccurate] = useState<AdvancedEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>(CATEGORIES[0]);
+
+  const categoryLeaders = useMemo(() => {
+    if (!leaderboardData.length) return [];
+    return leaderboardData
+      .filter(e => e.favoriteCategory?.toLowerCase() === selectedCategory.toLowerCase())
+      .slice(0, 20);
+  }, [leaderboardData, selectedCategory]);
 
   const fetchLeaderboardData = async () => {
     try {
@@ -176,6 +192,16 @@ export default function Leaderboard() {
           >
             <DollarSign className="w-4 h-4" />
             ROI
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={loading}
+            onClick={() => setActiveTab('category')}
+            className={`flex items-center gap-1 ${activeTab === 'category' ? 'active tab-button' : ''}`}
+          >
+            <BarChart2 className="w-4 h-4" />
+            By Category
           </Button>
         </div>
 
@@ -458,6 +484,104 @@ export default function Leaderboard() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+        )}
+
+        {/* Category-Specific Leaderboard */}
+        {!loading && activeTab === 'category' && (
+        <div>
+          {/* Category selector */}
+          <div className="flex flex-wrap justify-center gap-2 mb-6">
+            {CATEGORIES.map(cat => (
+              <Button
+                key={cat}
+                size="sm"
+                variant={selectedCategory === cat ? 'default' : 'outline'}
+                className="capitalize"
+                onClick={() => setSelectedCategory(cat)}
+              >
+                {cat}
+              </Button>
+            ))}
+          </div>
+
+          <div className="glass-card overflow-hidden">
+            <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+              <BarChart2 className="w-4 h-4 text-primary" />
+              <span className="font-semibold capitalize">{selectedCategory} — Top Traders</span>
+              <span className="ml-auto text-sm text-muted-foreground">{categoryLeaders.length} ranked</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-muted/30">
+                    <th className="text-left py-4 px-6 font-semibold">
+                      <Hash className="w-4 h-4 inline mr-2" />
+                      Rank
+                    </th>
+                    <th className="text-left py-4 px-6 font-semibold">Trader</th>
+                    <th className="text-right py-4 px-6 font-semibold">
+                      <TrendingUp className="w-4 h-4 inline mr-2" />
+                      Reputation
+                    </th>
+                    <th className="text-right py-4 px-6 font-semibold hidden md:table-cell">Trades</th>
+                    <th className="text-right py-4 px-6 font-semibold hidden md:table-cell">
+                      <Percent className="w-4 h-4 inline mr-2" />
+                      Win Rate
+                    </th>
+                    <th className="text-right py-4 px-6 font-semibold hidden lg:table-cell">
+                      <Star className="w-4 h-4 inline mr-2" />
+                      Level
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {categoryLeaders.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-10 text-center text-muted-foreground">
+                        No traders found in the <span className="capitalize font-medium">{selectedCategory}</span> category yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    categoryLeaders.map((entry, idx) => (
+                      <tr
+                        key={entry.address}
+                        className="border-b border-border/50 hover:bg-muted/20 transition-colors"
+                      >
+                        <td className="py-4 px-6">
+                          <span className={`font-bold ${rankColors[idx + 1] || 'text-foreground'}`}>
+                            #{idx + 1}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <div>
+                            <div className="font-medium">{entry.username || entry.address}</div>
+                            {entry.username && (
+                              <div className="text-xs text-muted-foreground">{entry.address}</div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <span className={`font-bold ${entry.totalProfit >= 0 ? 'text-success' : 'text-destructive'}`}>
+                            {entry.totalProfit >= 0 ? '+' : ''}{formatReputation(entry.totalProfit)}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-right hidden md:table-cell">{entry.trades}</td>
+                        <td className="py-4 px-6 text-right hidden md:table-cell">
+                          <span className={winRateColor(entry.winRate)}>
+                            {entry.winRate}%
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-right hidden lg:table-cell">
+                          <Badge variant="outline" className="text-xs">{entry.favoriteCategory}</Badge>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
         )}
