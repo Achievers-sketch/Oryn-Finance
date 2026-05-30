@@ -113,6 +113,7 @@ async function testIntegration() {
     console.log('   2. Check the backend logs for errors');
     console.log('   3. Verify environment variables are set correctly');
   }
+  
 }
 
 // Run the test
