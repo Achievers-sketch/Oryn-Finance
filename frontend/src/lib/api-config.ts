@@ -137,9 +137,20 @@ export const ENDPOINTS = {
   RISK_DIVERSIFICATION: '/risk/diversification',
   RISK_VOLATILITY: '/risk/volatility',
 
-  // Market Sentiment (#116)
+  // Market Sentiment (#116, #162)
   SENTIMENT_AGGREGATED: '/sentiment/aggregated',
+  SENTIMENT_HISTORY: '/sentiment/history',
   SENTIMENT_MARKET: (marketId: string) => `/sentiment/market/${marketId}`,
+
+  // Oracle Consensus (#164)
+  ORACLE_CONSENSUS: '/oracle/consensus',
+
+  // Liquidity Rebalancing (#163)
+  LIQUIDITY_REBALANCING: '/liquidity/rebalancing',
+
+  // Governance Timelock (#165)
+  GOVERNANCE_TIMELOCK: '/governance/timelock',
+  GOVERNANCE_TIMELOCK_ACTION: (id: string) => `/governance/timelock/${id}`,
 
   // Admin
   ADMIN_DASHBOARD: '/admin/dashboard',

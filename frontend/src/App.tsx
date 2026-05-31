@@ -31,6 +31,10 @@ import MarketSentiment from "./pages/MarketSentiment";
 import GovernanceAnalytics from "./pages/GovernanceAnalytics";
 import LiquidityConcentrationRisk from "./pages/LiquidityConcentrationRisk";
 import MarketCreatorVerification from "./pages/MarketCreatorVerification";
+import SentimentHistory from "./pages/SentimentHistory";
+import LiquidityRebalancing from "./pages/LiquidityRebalancing";
+import OracleConsensus from "./pages/OracleConsensus";
+import GovernanceTimelock from "./pages/GovernanceTimelock";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { useOffline } from "@/hooks/useOffline";
@@ -111,6 +115,10 @@ const App = () => (
                 <Route path="/governance/analytics" element={<GovernanceAnalytics />} />
                 <Route path="/liquidity/concentration" element={<LiquidityConcentrationRisk />} />
                 <Route path="/market-creators" element={<MarketCreatorVerification />} />
+                <Route path="/sentiment/history" element={<SentimentHistory />} />
+                <Route path="/liquidity/rebalancing" element={<LiquidityRebalancing />} />
+                <Route path="/oracle/consensus" element={<OracleConsensus />} />
+                <Route path="/governance/timelock" element={<GovernanceTimelock />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
