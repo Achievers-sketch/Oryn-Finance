@@ -1118,16 +1118,55 @@ export const riskService = {
   },
 };
 
-// Market Sentiment Services (#116)
+// Market Sentiment Services (#116, #162)
 export const sentimentService = {
   async getAggregated(): Promise<any> {
     const response = await apiClient.get(ENDPOINTS.SENTIMENT_AGGREGATED);
     if (!response.success) throw new Error(response.message || 'Failed to fetch sentiment');
     return response.data;
   },
+  async getHistory(limit?: number): Promise<any> {
+    const endpoint = limit ? `${ENDPOINTS.SENTIMENT_HISTORY}?limit=${limit}` : ENDPOINTS.SENTIMENT_HISTORY;
+    const response = await apiClient.get(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch sentiment history');
+    return response.data;
+  },
   async getMarketSentiment(marketId: string): Promise<any> {
     const response = await apiClient.get(ENDPOINTS.SENTIMENT_MARKET(marketId));
     if (!response.success) throw new Error(response.message || 'Failed to fetch market sentiment');
+    return response.data;
+  },
+};
+
+// Oracle Consensus Services (#164)
+export const oracleConsensusService = {
+  async getConsensus(): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.ORACLE_CONSENSUS);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch oracle consensus');
+    return response.data;
+  },
+};
+
+// Liquidity Rebalancing Services (#163)
+export const liquidityRebalancingService = {
+  async getSuggestions(): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.LIQUIDITY_REBALANCING);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch rebalancing suggestions');
+    return response.data;
+  },
+};
+
+// Governance Timelock Services (#165)
+export const governanceTimelockService = {
+  async getActions(status?: string): Promise<any> {
+    const endpoint = status ? `${ENDPOINTS.GOVERNANCE_TIMELOCK}?status=${status}` : ENDPOINTS.GOVERNANCE_TIMELOCK;
+    const response = await apiClient.get(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch timelock actions');
+    return response.data;
+  },
+  async getAction(id: string): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.GOVERNANCE_TIMELOCK_ACTION(id));
+    if (!response.success) throw new Error(response.message || 'Timelock action not found');
     return response.data;
   },
 };
@@ -1152,4 +1191,7 @@ export const apiService = {
   insurance: insuranceService,
   risk: riskService,
   sentiment: sentimentService,
+  oracleConsensus: oracleConsensusService,
+  liquidityRebalancing: liquidityRebalancingService,
+  governanceTimelock: governanceTimelockService,
 };

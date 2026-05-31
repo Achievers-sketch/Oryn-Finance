@@ -37,6 +37,8 @@ const geoFailoverRoutes = require('./src/routes/geoFailover');
 const explorerRoutes = require('./src/routes/explorer');                   // Issue #83
 const contractVersionRoutes = require('./src/routes/contractVersions');    // Issue #150
 const contractDependencyRoutes = require('./src/routes/contractDependencies'); // Issue #124
+const liquidityRebalancingRoutes = require('./src/routes/liquidityRebalancing'); // Issue #163
+const governanceTimelockRoutes = require('./src/routes/governanceTimelock'); // Issue #165
 
 
 // Import services
@@ -226,6 +228,8 @@ class OrynBackendServer {
     this.app.use('/api/risk', riskAnalyticsRoutes);
     this.app.use('/api/sentiment', sentimentRoutes);
     this.app.use('/api/geo-failover', geoFailoverRoutes);
+    this.app.use('/api/liquidity', liquidityRebalancingRoutes); // Issue #163 (rebalancing sub-route)
+    this.app.use('/api/governance/timelock', governanceTimelockRoutes); // Issue #165
 
     // Transaction routes (mixed auth - some endpoints require auth, others don't)
     this.app.use('/api/transactions', transactionRoutes);

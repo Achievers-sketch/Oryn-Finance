@@ -24,6 +24,15 @@ function sentimentLabel(score) {
 let cachedAggregated = null;
 let cacheExpiry = 0;
 
+// Rolling snapshot buffer for history tracking (#162)
+const HISTORY_MAX = 288; // 24h at 5-min intervals
+const sentimentSnapshots = []; // [{timestamp, overall, byCategory}]
+
+function captureSnapshot(data) {
+  sentimentSnapshots.push({ timestamp: data.generatedAt, overall: data.overall, byCategory: data.byCategory });
+  if (sentimentSnapshots.length > HISTORY_MAX) sentimentSnapshots.shift();
+}
+
 class SentimentController {
   // GET /api/sentiment/market/:marketId
   static async getMarketSentiment(req, res) {
@@ -134,8 +143,28 @@ class SentimentController {
       generatedAt: new Date().toISOString(),
     };
     cacheExpiry = now + 5 * 60 * 1000;
+    captureSnapshot(cachedAggregated);
 
     return res.json({ success: true, data: cachedAggregated });
+  }
+
+  // GET /api/sentiment/history — rolling snapshot history (#162)
+  static async getSentimentHistory(req, res) {
+    const limit = Math.min(parseInt(req.query.limit) || 48, HISTORY_MAX);
+    const snapshots = sentimentSnapshots.slice(-limit);
+
+    // If no real snapshots yet, build synthetic ones from current data
+    if (snapshots.length === 0 && cachedAggregated) {
+      snapshots.push({ timestamp: cachedAggregated.generatedAt, overall: cachedAggregated.overall, byCategory: cachedAggregated.byCategory });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        snapshots,
+        count: snapshots.length,
+      },
+    });
   }
 }
 
