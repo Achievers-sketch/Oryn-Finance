@@ -12,6 +12,8 @@ https://youtu.be/1qZALlksIHs?si=f0HuHzg4F_bxwPpQ
 ![Oryn Finance Banner](https://img.shields.io/badge/Oryn%20Finance-Prediction%20Markets-blue?style=for-the-badge)
 [![Stellar](https://img.shields.io/badge/Built%20on-Stellar-black?style=for-the-badge&logo=stellar)](https://stellar.org)
 [![Soroban](https://img.shields.io/badge/Smart%20Contracts-Soroban-yellow?style=for-the-badge)](https://soroban.stellar.org)
+[![CI](https://img.shields.io/github/actions/workflow/status/anomalyco/Oryn-Finance/ci.yml?branch=main&label=CI&logo=github&style=for-the-badge)](https://github.com/anomalyco/Oryn-Finance/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-reported-brightgreen?style=for-the-badge)](https://github.com/anomalyco/Oryn-Finance/actions/workflows/ci.yml)
 
 **Next-Generation Decentralized Prediction Markets on Stellar Blockchain**
 
@@ -298,6 +300,7 @@ graph TB
 {
   "containerization": "Docker",
   "ci_cd": "GitHub Actions",
+  "coverage": "Jest + Vitest Coverage Reports",
   "monitoring": "Winston Logging",
   "documentation": "Swagger/OpenAPI 3.0",
   "security": "Helmet.js + CORS + Rate Limiting"

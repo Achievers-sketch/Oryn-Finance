@@ -9,6 +9,7 @@
     "prod": "NODE_ENV=production node server.js",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "seed": "node src/utils/seedDatabase.js",
     "build": "echo 'No build step required for Node.js'",
     "lint": "eslint .",
