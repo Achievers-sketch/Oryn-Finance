@@ -174,7 +174,7 @@ impl TreasuryContract {
 
         // Update balance tracking
         let current_balance = Self::get_asset_balance(&env, &asset);
-        env.storage().persistent().set(&StorageKey::Balance(asset), &(current_balance + amount));
+        env.storage().persistent().set(&StorageKey::Balance(asset.clone()), &(current_balance + amount));
 
         // Update total fees collected
         let mut total_fees: i128 = env.storage().persistent()
@@ -246,7 +246,7 @@ impl TreasuryContract {
         // Emit distribution event
         env.events().publish((
             symbol_short!("fees"),
-            symbol_short!("distributed"),
+            symbol_short!("dist"),
         ), (asset, asset_balance, env.ledger().timestamp()));
 
         Ok(())
@@ -421,7 +421,7 @@ impl TreasuryContract {
 
         for strategy_id in active_strategies.iter() {
             if let Some(strategy) = env.storage().persistent()
-                .get::<StorageKey, StrategyInfo>(&StorageKey::Strategy(strategy_id.unwrap())) {
+                .get::<StorageKey, StrategyInfo>(&StorageKey::Strategy(strategy_id)) {
                 total_investments += strategy.current_allocation;
                 total_yield += strategy.expected_yield;
             }
@@ -459,7 +459,7 @@ impl TreasuryContract {
         let mut recent_history = Vec::new(&env);
         for i in start..history.len() {
             if let Some(record) = history.get(i) {
-                recent_history.push_back(record.unwrap());
+                recent_history.push_back(record);
             }
         }
 

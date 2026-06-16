@@ -162,7 +162,7 @@ impl X402IntegrationContract {
         tx_hash: BytesN<32>,
         new_confirmations: u32,
     ) {
-        let cross_tx: CrossChainTransaction = env.storage()
+        let mut cross_tx: CrossChainTransaction = env.storage()
             .persistent()
             .get(&StorageKey::EncryptedOrder(tx_hash.clone()))
             .unwrap();
@@ -214,32 +214,12 @@ impl X402IntegrationContract {
         amount: i128,
     ) -> BytesN<32> {
         let mut data = Bytes::new(env);
-        data.append(&source_chain.to_xdr(env));
-        data.append(&destination_chain.to_xdr(env));
+        data.append(&source_chain.clone().to_xdr(env));
+        data.append(&destination_chain.clone().to_xdr(env));
         let amount_bytes = Bytes::from_slice(env, &amount.to_be_bytes());
         data.append(&amount_bytes);
         let ts_bytes = Bytes::from_slice(env, &env.ledger().timestamp().to_be_bytes());
         data.append(&ts_bytes);
-        env.crypto().keccak256(&data).into()
-    }
-}
-
-    /* ------------------------ INTERNAL HELPERS ------------------------ */
-
-    fn generate_order_hash(env: &Env, submitter: &Address, encrypted_data: &Bytes) -> BytesN<32> {
-        let mut data = Bytes::new(env);
-
-        // Address → Bytes
-        let submitter_bytes = submitter.to_xdr(env);
-        data.append(&submitter_bytes);
-
-        // Encrypted payload
-        data.append(encrypted_data);
-
-        // Timestamp → Bytes
-        let ts_bytes = Bytes::from_slice(env, &env.ledger().timestamp().to_be_bytes());
-        data.append(&ts_bytes);
-
         env.crypto().keccak256(&data).into()
     }
 }

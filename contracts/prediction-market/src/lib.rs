@@ -52,6 +52,26 @@ pub struct UserPosition {
     pub realized_pnl: i128,
 }
 
+#[contracttype]
+#[derive(Clone)]
+pub struct BatchTradeRequest {
+    pub user: Address,
+    pub token: u32,
+    pub is_buy: bool,
+    pub amount: i128,
+    pub max_price: i128,
+}
+
+#[contracttype]
+#[derive(Clone)]
+pub struct BatchTradeResult {
+    pub user: Address,
+    pub executed_amount: i128,
+    pub executed_price: i128,
+    pub gas_saved: i128,
+    pub success: bool,
+}
+
 /* ============================================================
    CONTRACT
 ============================================================ */
@@ -168,26 +188,6 @@ impl PredictionMarket {
 
     /* ---------------- BATCHED EXECUTION ---------------- */
 
-    #[contracttype]
-    #[derive(Clone)]
-    pub struct BatchTradeRequest {
-        pub user: Address,
-        pub token: TokenType,
-        pub is_buy: bool,
-        pub amount: i128,
-        pub max_price: i128,
-    }
-
-    #[contracttype]
-    #[derive(Clone)]
-    pub struct BatchTradeResult {
-        pub user: Address,
-        pub executed_amount: i128,
-        pub executed_price: i128,
-        pub gas_saved: i128,
-        pub success: bool,
-    }
-
     pub fn execute_batch_trades(
         env: Env,
         executor: Address,
@@ -213,7 +213,8 @@ impl PredictionMarket {
 
         // Calculate totals for price impact
         for trade in trades.iter() {
-            match (trade.token.clone(), trade.is_buy) {
+            let token = Self::token_from_code(trade.token)?;
+            match (token, trade.is_buy) {
                 (TokenType::Yes, true) => yes_buy_total += trade.amount,
                 (TokenType::Yes, false) => yes_sell_total += trade.amount,
                 (TokenType::No, true) => no_buy_total += trade.amount,
@@ -236,7 +237,8 @@ impl PredictionMarket {
             };
 
             // Calculate execution price with batch discount
-            let base_price = Self::get_current_price(&env, &trade.token)?;
+            let token = Self::token_from_code(trade.token)?;
+            let base_price = Self::get_current_price(&env, &token)?;
             let execution_price = if trade.is_buy {
                 base_price + (batch_price_impact / 2) // Reduced price impact
             } else {
@@ -258,7 +260,7 @@ impl PredictionMarket {
                 Self::buy(
                     env.clone(),
                     trade.user.clone(),
-                    trade.token.clone(),
+                    token.clone(),
                     trade.amount,
                     execution_price,
                 )
@@ -266,7 +268,7 @@ impl PredictionMarket {
                 Self::sell(
                     env.clone(),
                     trade.user.clone(),
-                    trade.token.clone(),
+                    token.clone(),
                     trade.amount,
                     execution_price,
                 )
@@ -297,6 +299,14 @@ impl PredictionMarket {
         match token {
             TokenType::Yes => Ok(PRECISION / 2), // 50 cents
             TokenType::No => Ok(PRECISION / 2),  // 50 cents
+        }
+    }
+
+    fn token_from_code(token: u32) -> Result<TokenType, Error> {
+        match token {
+            0 => Ok(TokenType::Yes),
+            1 => Ok(TokenType::No),
+            _ => Err(OrynError::InvalidTokenType.into()),
         }
     }
 

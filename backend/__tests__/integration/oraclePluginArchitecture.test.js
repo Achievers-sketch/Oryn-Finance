@@ -4,8 +4,13 @@
  * Tests the plugin-based oracle provider system
  */
 
-const oracleService = require('../oracleService');
-const BaseOracleProvider = require('./BaseOracleProvider');
+const BaseOracleProvider = require('../../src/services/oracle/BaseOracleProvider');
+
+const oracleService = new Proxy({}, {
+  get(_target, property) {
+    return require('../../src/services/oracleService')[property];
+  }
+});
 
 // Test provider implementation
 class TestProvider extends BaseOracleProvider {
@@ -377,3 +382,12 @@ module.exports = {
   runAllTests,
   TestProvider
 };
+
+describe('Oracle Plugin Architecture helpers', () => {
+  it('defines a provider compatible with the base provider contract', () => {
+    const provider = new TestProvider({ defaultWeight: 0.5 });
+
+    expect(provider.name).toBe('test-provider');
+    expect(provider.getSupportedMarketTypes()).toEqual(expect.arrayContaining(['test', 'generic']));
+  });
+});

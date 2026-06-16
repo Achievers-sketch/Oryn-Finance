@@ -196,12 +196,13 @@ pub struct Proposal {
 ============================================================ */
 
 #[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum OrynError {
     Unauthorized = 1,
     InvalidInput = 2,
     InsufficientBalance = 3,
     ContractPaused = 4,
+    NotFound = 5,
 
     MarketNotFound = 10,
     MarketExpired = 11,
@@ -240,6 +241,18 @@ pub enum OrynError {
 impl From<OrynError> for soroban_sdk::Error {
     fn from(e: OrynError) -> Self {
         soroban_sdk::Error::from_contract_error(e as u32)
+    }
+}
+
+impl From<&OrynError> for soroban_sdk::Error {
+    fn from(e: &OrynError) -> Self {
+        soroban_sdk::Error::from_contract_error(*e as u32)
+    }
+}
+
+impl From<soroban_sdk::Error> for OrynError {
+    fn from(_: soroban_sdk::Error) -> Self {
+        OrynError::InvalidInput
     }
 }
 

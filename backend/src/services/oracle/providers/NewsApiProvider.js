@@ -6,8 +6,8 @@
  */
 
 const axios = require('axios');
-const BaseOracleProvider = require('./BaseOracleProvider');
-const logger = require('../../config/logger');
+const BaseOracleProvider = require('../BaseOracleProvider');
+const logger = require('../../../config/logger');
 
 class NewsApiProvider extends BaseOracleProvider {
   constructor(config = {}) {

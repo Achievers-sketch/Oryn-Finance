@@ -6,8 +6,8 @@
  */
 
 const axios = require('axios');
-const BaseOracleProvider = require('./BaseOracleProvider');
-const logger = require('../../config/logger');
+const BaseOracleProvider = require('../BaseOracleProvider');
+const logger = require('../../../config/logger');
 
 class CoinGeckoProvider extends BaseOracleProvider {
   constructor(config = {}) {
@@ -123,11 +123,12 @@ class CoinGeckoProvider extends BaseOracleProvider {
         case 'below':
           outcome = currentPrice < targetPrice ? 'yes' : 'no';
           break;
-        case 'equals':
+        case 'equals': {
           // Allow 1% tolerance for price equality
           const tolerance = targetPrice * 0.01;
           outcome = Math.abs(currentPrice - targetPrice) <= tolerance ? 'yes' : 'no';
           break;
+        }
         default:
           throw new Error(`Unknown condition: ${condition}`);
       }
