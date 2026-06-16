@@ -82,7 +82,7 @@ jobs:
           retention-days: 30
 
   contracts:
-    name: Smart Contracts (Build, Test)
+    name: Smart Contracts (Check, Lint, Build, Test)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -94,14 +94,53 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           target: wasm32-unknown-unknown
+          components: clippy
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ./contracts
 
+      - name: Check (fast compilation verification)
+        run: cargo check --workspace
+
+      - name: Lint (clippy)
+        run: cargo clippy --workspace --no-deps
+
       - name: Build
         run: cargo build --workspace
 
       - name: Test
-        run: cargo test --workspace
+        run: |
+          cargo test --workspace 2>&1 | tee test-output.log
+
+      - name: Generate test summary
+        if: always()
+        run: |
+          {
+            echo "## Smart Contract Test Results"
+            echo ""
+            echo "**Workspace crates:** access-control, amm-pool, governance, insurance,"
+            echo "market-factory, oracle-resolver, prediction-market, reputation, shared,"
+            echo "tokens, treasury, x402-integration, zk-verifier"
+            echo ""
+            echo '```'
+            grep -E '^(test result|running [0-9]+ test)' test-output.log || echo "(no test output captured)"
+            echo '```'
+            if grep -q 'FAILED' test-output.log 2>/dev/null; then
+              echo ""
+              echo "### ❌ Failed Tests"
+              echo '```'
+              grep -B5 'FAILED' test-output.log
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: contract-test-logs
+          path: contracts/test-output.log
+          if-no-files-found: warn
+          retention-days: 30
