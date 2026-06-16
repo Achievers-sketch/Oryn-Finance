@@ -712,7 +712,13 @@ class TransactionController {
       });
     } catch (error) {
       logger.error('Failed to get current ledger:', error);
-      throw new BadRequestError(`Failed to get current ledger: ${error.message}`);
+      res.status(503).json({
+        success: false,
+        error: {
+          code: 'CURRENT_LEDGER_UNAVAILABLE',
+          message: `Failed to get current ledger: ${error.message}`
+        }
+      });
     }
   }
 

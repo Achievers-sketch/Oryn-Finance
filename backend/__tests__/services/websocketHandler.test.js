@@ -1,6 +1,7 @@
 jest.mock('../../src/config/logger', () => ({
   websocket: jest.fn(),
-  error: jest.fn()
+  error: jest.fn(),
+  warn: jest.fn()
 }));
 
 const websocketHandler = require('../../src/services/websocketHandler');
@@ -162,7 +163,7 @@ describe('WebSocketHandler', () => {
       );
 
       expect(result.delta).toBe(true);
-      expect(result.data).toEqual({ type: 'price', price: 0.62 });
+      expect(result.data).toEqual({ price: 0.62 });
       expect(result.data.volume).toBeUndefined();
     });
 

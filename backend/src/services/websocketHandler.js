@@ -166,10 +166,14 @@ class WebSocketHandler {
       // Send heartbeat only to each socket individually so each client
       // receives its own connection health ping rather than a broadcast
       // that carries aggregate server state to every client.
-      this.io.sockets.sockets.forEach((socket) => {
+      this.io.sockets?.sockets?.forEach?.((socket) => {
         socket.emit('heartbeat', { ts: Date.now() });
       });
     }, 30000);
+
+    if (typeof this.heartbeatInterval.unref === 'function') {
+      this.heartbeatInterval.unref();
+    }
   }
 
   stopHeartbeat() {

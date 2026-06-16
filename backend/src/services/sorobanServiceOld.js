@@ -1,5 +1,6 @@
 const StellarSdk = require('stellar-sdk');
 const logger = require('../config/logger');
+const stellarService = require('./stellarService');
 const contractConfig = require('../config/contracts');
 
 class SorobanService {

@@ -219,7 +219,10 @@ export class ContractService {
   }
 
   static async getContractState(contractId: string) {
-    const response = await apiClient.get(ENDPOINTS.TRANSACTION_STATUS(contractId));
+    const endpoint = typeof ENDPOINTS.TRANSACTION_STATUS === 'function'
+      ? ENDPOINTS.TRANSACTION_STATUS(contractId)
+      : `/transactions/status/${contractId}`;
+    const response = await apiClient.get(endpoint);
     if (!response.success) {
       throw new Error(response.message || 'Failed to get contract state');
     }

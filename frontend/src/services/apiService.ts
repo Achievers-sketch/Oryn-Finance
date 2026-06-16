@@ -44,12 +44,15 @@ export const networkService = {
     if (!response.success) {
       throw new Error(response.message || 'Failed to get current ledger');
     }
-    return response.data!.currentLedger;
+    return response.data!.currentLedger ?? (response.data as any).ledger;
   },
 
   // Get transaction status
   async getTransactionStatus(txHash: string): Promise<any> {
-    const response = await apiClient.get(ENDPOINTS.TRANSACTION_STATUS(txHash));
+    const endpoint = typeof ENDPOINTS.TRANSACTION_STATUS === 'function'
+      ? ENDPOINTS.TRANSACTION_STATUS(txHash)
+      : `/transactions/status/${txHash}`;
+    const response = await apiClient.get(endpoint);
     if (!response.success) {
       throw new Error(response.message || 'Failed to get transaction status');
     }
@@ -920,6 +923,53 @@ export const treasuryService = {
   },
 };
 
+// Institutional Reporting Services
+export const reportingService = {
+  buildQuery(params?: { timeframe?: string; category?: string; limit?: number }): string {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, String(value));
+        }
+      });
+    }
+    return queryParams.toString();
+  },
+
+  async getInstitutionalDashboard(params?: { timeframe?: string; category?: string; limit?: number }): Promise<any> {
+    const query = this.buildQuery(params);
+    const endpoint = query ? `${ENDPOINTS.REPORTS_INSTITUTIONAL}?${query}` : ENDPOINTS.REPORTS_INSTITUTIONAL;
+    const response = await apiClient.get(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch institutional reports');
+    return response.data;
+  },
+
+  async getMarketExposure(params?: { timeframe?: string; category?: string; limit?: number }): Promise<any> {
+    const query = this.buildQuery(params);
+    const endpoint = query ? `${ENDPOINTS.REPORTS_MARKET_EXPOSURE}?${query}` : ENDPOINTS.REPORTS_MARKET_EXPOSURE;
+    const response = await apiClient.get(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch market exposure report');
+    return response.data;
+  },
+
+  async getTreasury(params?: { timeframe?: string; limit?: number }): Promise<any> {
+    const query = this.buildQuery(params);
+    const endpoint = query ? `${ENDPOINTS.REPORTS_TREASURY}?${query}` : ENDPOINTS.REPORTS_TREASURY;
+    const response = await apiClient.get(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch treasury report');
+    return response.data;
+  },
+
+  async getGovernanceActivity(params?: { timeframe?: string; limit?: number }): Promise<any> {
+    const query = this.buildQuery(params);
+    const endpoint = query ? `${ENDPOINTS.REPORTS_GOVERNANCE_ACTIVITY}?${query}` : ENDPOINTS.REPORTS_GOVERNANCE_ACTIVITY;
+    const response = await apiClient.get(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch governance activity report');
+    return response.data;
+  },
+};
+
 // Contract Operations Services
 export const contractService = {
   async getDependencyGraph(): Promise<any> {
@@ -1185,6 +1235,7 @@ export const apiService = {
   admin: adminService,
   volatility: volatilityService,
   treasury: treasuryService,
+  reports: reportingService,
   contracts: contractService,
   liquidityPositions: liquidityPositionService,
   crossChain: crossChainService,

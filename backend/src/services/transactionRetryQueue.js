@@ -78,6 +78,10 @@ class TransactionRetryQueue {
     }
   }
 
+  async processJob(job) {
+    return this._processJob(job);
+  }
+
   async _handleSuccess(job, result) {
     // Update Trade document if we have a tradeId
     if (job.tradeId) {

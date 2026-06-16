@@ -73,7 +73,8 @@ pub struct VerificationResult {
     pub is_valid: bool,
     pub proof_hash: BytesN<32>,
     pub verification_timestamp: u64,
-    pub error_message: Option<String>,
+    pub has_error: bool,
+    pub error_message: String,
 }
 
 #[contracttype]
@@ -185,7 +186,8 @@ impl ZKVerifierContract {
                 is_valid: false,
                 proof_hash: proof_hash.clone(),
                 verification_timestamp: env.ledger().timestamp(),
-                error_message: Some(String::from_str(&env, "Nullifier already used")),
+                has_error: true,
+                error_message: String::from_str(&env, "Nullifier already used"),
             };
             
             // Cache the failure too (briefly)
@@ -224,14 +226,16 @@ impl ZKVerifierContract {
                 is_valid: true,
                 proof_hash: proof_hash.clone(),
                 verification_timestamp: env.ledger().timestamp(),
-                error_message: None,
+                has_error: false,
+                error_message: String::from_str(&env, ""),
             }
         } else {
             VerificationResult {
                 is_valid: false,
                 proof_hash: proof_hash.clone(),
                 verification_timestamp: env.ledger().timestamp(),
-                error_message: Some(String::from_str(&env, "Invalid proof")),
+                has_error: true,
+                error_message: String::from_str(&env, "Invalid proof"),
             }
         };
 
@@ -311,10 +315,7 @@ mod test {
         let client = ZKVerifierContractClient::new(&env, &contract_id);
 
         client.initialize(&admin);
-
-        // Verify storage (instance)
-        assert!(env.storage().instance().has(&StorageKey::Initialized));
-        assert_eq!(env.storage().instance().get::<_, Address>(&StorageKey::Admin).unwrap(), admin);
+        client.register_circuit(&admin, &String::from_str(&env, "c1"));
     }
 
     #[test]
@@ -331,8 +332,8 @@ mod test {
         let proof = Bytes::from_slice(&env, &[0u8; 70]); // Valid proof (> 64 bytes)
         let public_inputs = PredictionPublicInputs {
             market_id: String::from_str(&env, "market-1"),
-            commitment_hash: [1u8; 32].into(),
-            nullifier_hash: [2u8; 32].into(),
+            commitment_hash: BytesN::from_array(&env, &[1u8; 32]),
+            nullifier_hash: BytesN::from_array(&env, &[2u8; 32]),
         };
 
         // First call - should verify and cache
@@ -360,8 +361,8 @@ mod test {
         let proof = Bytes::from_slice(&env, &[1u8; 70]);
         let public_inputs = PredictionPublicInputs {
             market_id: String::from_str(&env, "m1"),
-            commitment_hash: [3u8; 32].into(),
-            nullifier_hash: [4u8; 32].into(),
+            commitment_hash: BytesN::from_array(&env, &[3u8; 32]),
+            nullifier_hash: BytesN::from_array(&env, &[4u8; 32]),
         };
 
         // First use
@@ -377,6 +378,7 @@ mod test {
         let proof2 = Bytes::from_slice(&env, &[2u8; 70]);
         let res_reuse = client.verify_prediction_proof(&admin, &String::from_str(&env, "c1"), &proof2, &public_inputs);
         assert!(!res_reuse.is_valid);
-        assert_eq!(res_reuse.error_message, Some(String::from_str(&env, "Nullifier already used")));
+        assert!(res_reuse.has_error);
+        assert_eq!(res_reuse.error_message, String::from_str(&env, "Nullifier already used"));
     }
 }

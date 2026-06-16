@@ -792,6 +792,7 @@ export default function Portfolio() {
               )}
             </div>
           </MagicCard>
+        </div>
 
         <MagicCard className="glass-card p-6 mb-8" gradientColor="#262626">
           <h2 className="text-xl font-semibold mb-6">Active Positions</h2>
@@ -1143,7 +1144,6 @@ export default function Portfolio() {
                     </motion.div>
                   ))}
                 </AnimatePresence>
-              </div>
               </div>
             )}
           </div>

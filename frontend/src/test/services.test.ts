@@ -419,6 +419,6 @@ describe('Component Integration Tests', () => {
     };
     
     expect(walletState.isConnected).toBe(true);
-    expect(walletState.address).toStartWith('G');
+    expect(walletState.address).toMatch(/^G/);
   });
 });

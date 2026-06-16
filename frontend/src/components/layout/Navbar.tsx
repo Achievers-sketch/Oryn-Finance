@@ -15,6 +15,7 @@ const navItems = [
   { labelKey: 'nav.about', path: '/about' },
   { labelKey: 'nav.leaderboard', path: '/leaderboard' },
   { labelKey: 'nav.analytics', path: '/analytics' },
+  { labelKey: 'nav.reports', path: '/reports' },
   { labelKey: 'nav.governance', path: '/governance' },
 ];
 

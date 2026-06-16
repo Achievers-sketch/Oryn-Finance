@@ -5,8 +5,8 @@
  * Integrates with Chainlink VRF and price feed contracts on Stellar.
  */
 
-const BaseOracleProvider = require('./BaseOracleProvider');
-const logger = require('../../config/logger');
+const BaseOracleProvider = require('../BaseOracleProvider');
+const logger = require('../../../config/logger');
 
 class ChainlinkProvider extends BaseOracleProvider {
   constructor(config = {}) {
@@ -140,10 +140,11 @@ class ChainlinkProvider extends BaseOracleProvider {
         case 'below':
           outcome = currentValue < targetValue ? 'yes' : 'no';
           break;
-        case 'equals':
+        case 'equals': {
           const tolerance = targetValue * 0.01;
           outcome = Math.abs(currentValue - targetValue) <= tolerance ? 'yes' : 'no';
           break;
+        }
         default:
           throw new Error(`Unknown operator: ${operator}`);
       }

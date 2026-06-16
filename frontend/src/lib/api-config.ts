@@ -98,6 +98,12 @@ export const ENDPOINTS = {
   TREASURY_RECORD_OUTFLOW: '/treasury/distributions',
   TREASURY_RECORD_GOV_ACTION: '/treasury/governance-actions',
 
+  // Institutional Reports
+  REPORTS_INSTITUTIONAL: '/reports/institutional',
+  REPORTS_MARKET_EXPOSURE: '/reports/market-exposure',
+  REPORTS_TREASURY: '/reports/treasury',
+  REPORTS_GOVERNANCE_ACTIVITY: '/reports/governance-activity',
+
   // Contracts
   CONTRACT_DEPENDENCIES: '/contracts/dependencies',
   CONTRACT_DEPENDENCY_FLOW: '/contracts/dependencies/flow',

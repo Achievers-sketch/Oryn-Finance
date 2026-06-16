@@ -2,7 +2,7 @@ const { User, Trade, Position, Market } = require('../models');
 const logger = require('../config/logger');
 const stellarService = require('../services/stellarService');
 const sorobanService = require('../services/sorobanService');
-const { NotFoundError, ForbiddenError } = require('../middleware/errorHandler');
+const { NotFoundError, ForbiddenError, ValidationError } = require('../middleware/errorHandler');
 
 class AdminController {
   // Get platform overview for admin dashboard

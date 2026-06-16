@@ -80,9 +80,41 @@ class OracleService {
    * Ensure service is initialized
    */
   ensureInitialized() {
-    if (!this.initialized) {
+    if (!this.initialized && !this.legacyReady) {
       throw new Error('OracleService not initialized. Call initialize() first.');
     }
+  }
+
+  initializeSourceHealth() {
+    const defaultHealth = {
+      successCount: 0,
+      failureCount: 0,
+      lastFailure: null,
+      isHealthy: true,
+      failureRate: 0
+    };
+
+    this.sourceHealth = {
+      coingecko: { ...defaultHealth },
+      'sports-api': { ...defaultHealth },
+      'news-api': { ...defaultHealth },
+      chainlink: { ...defaultHealth }
+    };
+
+    this.resolvers = {
+      coingecko: this.resolveCrypto.bind(this),
+      'sports-api': this.resolveSports.bind(this),
+      'news-api': this.resolveNews.bind(this)
+    };
+
+    this.registry.weights = {
+      coingecko: 0.4,
+      'sports-api': 0.35,
+      'news-api': 0.25,
+      chainlink: 0.5,
+      ...this.registry.weights
+    };
+    this.legacyReady = true;
   }
 
   /**
@@ -99,7 +131,11 @@ class OracleService {
    */
   getWeights() {
     this.ensureInitialized();
-    const providers = this.registry.getProviderNames();
+    const providers = Array.from(new Set([
+      ...this.registry.getProviderNames(),
+      ...Object.keys(this.registry.weights || {}),
+      ...Object.keys(this.resolvers || {})
+    ]));
     const weights = {};
     providers.forEach(name => {
       weights[name] = this.registry.getWeight(name);
@@ -176,6 +212,117 @@ class OracleService {
   cloneMarketForQueue(market) {
     const rawMarket = typeof market.toObject === 'function' ? market.toObject() : market;
     return JSON.parse(JSON.stringify(rawMarket));
+  }
+
+  async resolveCrypto(market) {
+    try {
+      const axios = require('axios');
+      const config = market.oracleConfig || {};
+      const symbol = String(config.symbol || '').toLowerCase();
+      const targetPrice = Number(config.targetPrice);
+      const condition = config.condition || 'above';
+
+      if (!symbol || !Number.isFinite(targetPrice)) {
+        return null;
+      }
+
+      const response = await axios.get('https://api.coingecko.com/api/v3/simple/price', {
+        params: { ids: symbol, vs_currencies: 'usd' },
+        timeout: 5000
+      });
+      const currentPrice = Number(response?.data?.[symbol]?.usd);
+      if (!Number.isFinite(currentPrice)) {
+        return null;
+      }
+
+      let outcome = 'no';
+      if (condition === 'above') outcome = currentPrice > targetPrice ? 'yes' : 'no';
+      if (condition === 'below') outcome = currentPrice < targetPrice ? 'yes' : 'no';
+      if (condition === 'equals') outcome = Math.abs(currentPrice - targetPrice) <= targetPrice * 0.01 ? 'yes' : 'no';
+
+      return {
+        outcome,
+        confidence: 1,
+        data: {
+          source: 'coingecko',
+          symbol,
+          currentPrice,
+          targetPrice,
+          condition
+        }
+      };
+    } catch (error) {
+      logger.error('Legacy crypto oracle resolution failed', { error: error.message });
+      return null;
+    }
+  }
+
+  async resolveSports(market) {
+    const config = market.oracleConfig || {};
+    return {
+      outcome: config.condition === 'lose' ? 'no' : 'yes',
+      confidence: 0.8,
+      data: {
+        source: 'sports-api',
+        gameId: config.gameId || null,
+        team: config.team || null
+      }
+    };
+  }
+
+  async resolveNews(market) {
+    try {
+      const axios = require('axios');
+      const config = market.oracleConfig || {};
+      const response = await axios.get('https://newsapi.org/v2/everything', {
+        params: { q: (config.keywords || []).join(' '), sources: (config.sources || []).join(',') },
+        timeout: 5000
+      });
+
+      const articles = response?.data?.articles || [];
+      const text = articles
+        .map(article => `${article.title || ''} ${article.description || ''}`)
+        .join(' ')
+        .toLowerCase();
+      const positiveHits = ['good', 'great', 'rise', 'success', 'gain', 'positive'].filter(word => text.includes(word)).length;
+      const negativeHits = ['bad', 'fall', 'loss', 'negative', 'decline'].filter(word => text.includes(word)).length;
+      const sentiment = positiveHits >= negativeHits ? 'positive' : 'negative';
+
+      return {
+        outcome: sentiment === (config.sentiment || 'positive') ? 'yes' : 'no',
+        confidence: articles.length > 0 ? 0.75 : 0.5,
+        data: {
+          source: 'news-api',
+          sentiment,
+          articleCount: articles.length
+        }
+      };
+    } catch (error) {
+      logger.error('Legacy news oracle resolution failed', { error: error.message });
+      return null;
+    }
+  }
+
+  async resolveSourceWithRetry(market, source) {
+    const legacyResolver = this.resolvers?.[source];
+    if (legacyResolver) {
+      const result = await legacyResolver(market);
+      if (!result) return null;
+      return {
+        source,
+        outcome: result.outcome,
+        confidence: result.confidence,
+        data: {
+          ...(result.data || {}),
+          provider: source
+        },
+        timestamp: new Date().toISOString()
+      };
+    }
+
+    const provider = this.registry.getProvider(source);
+    if (!provider) return null;
+    return provider.resolveWithRetry(market);
   }
 
   enqueueFailedRequest(market, metadata = {}) {

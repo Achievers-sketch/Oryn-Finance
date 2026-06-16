@@ -1,4 +1,3 @@
-const jest = require('jest');
 const BaseOracleProvider = require('../../src/services/oracle/BaseOracleProvider');
 const logger = require('../../src/config/logger');
 
@@ -48,7 +47,7 @@ describe('Oracle Chaos Tests - Downtime Simulation', () => {
     await expect(provider.resolve({ marketId: 'test' })).rejects.toThrow('simulated failure');
     expect(provider.health.failureCount).toBe(0);
     try { await provider.resolve({ marketId: 'test' }); } catch (e) { /* expected */ }
-    expect(provider.resolveCount).toBe(1);
+    expect(provider.resolveCount).toBe(2);
   });
 
   it('should track health metrics after consecutive failures', async () => {

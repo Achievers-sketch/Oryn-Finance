@@ -16,7 +16,5 @@ module.exports = {
   verbose: true,
   testTimeout: 10000,
   clearMocks: true,
-  restoreMocks: true,
-  resetMocks: true,
-  mockReset: true
+  restoreMocks: true
 };

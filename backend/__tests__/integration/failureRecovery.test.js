@@ -17,10 +17,10 @@ const request = require('supertest');
 
 // ─── Shared mock state ────────────────────────────────────────────────────────
 
-let sorobanHealthy = true;
-let stellarHealthy = true;
-let dbHealthy = true;
-let oraclePrimaryHealthy = true;
+let mockSorobanHealthy = true;
+let mockStellarHealthy = true;
+let mockDbHealthy = true;
+let mockOraclePrimaryHealthy = true;
 
 // ─── Module mocks ─────────────────────────────────────────────────────────────
 
@@ -36,25 +36,25 @@ jest.mock('../../src/config/logger', () => ({
 jest.mock('mongoose', () => ({
   connection: {
     get readyState() {
-      return dbHealthy ? 1 : 0;
+      return mockDbHealthy ? 1 : 0;
     },
   },
 }));
 
 jest.mock('../../src/services/stellarService', () => ({
   getNetworkStatus: jest.fn(async () => {
-    if (!stellarHealthy) throw new Error('Stellar network unreachable');
+    if (!mockStellarHealthy) throw new Error('Stellar network unreachable');
     return { isConnected: true, network: 'testnet', latestLedger: { sequence: 1000 } };
   }),
 }));
 
 jest.mock('../../src/services/sorobanService', () => ({
   getHealth: jest.fn(async () => {
-    if (!sorobanHealthy) throw new Error('Soroban RPC unavailable');
+    if (!mockSorobanHealthy) throw new Error('Soroban RPC unavailable');
     return { status: 'healthy', latestLedger: 1000 };
   }),
   submitSignedTransaction: jest.fn(async () => {
-    if (!sorobanHealthy) throw new Error('Soroban RPC unavailable');
+    if (!mockSorobanHealthy) throw new Error('Soroban RPC unavailable');
     return { hash: 'tx_abc123', successful: true };
   }),
   validateTransactionXDR: jest.fn(() => true),
@@ -105,7 +105,7 @@ jest.mock('../../src/services/transactionRetryQueue', () => {
 jest.mock('../../src/services/oracleService', () => ({
   initialized: true,
   getSourceHealthStatus: jest.fn(() => {
-    if (!oraclePrimaryHealthy) {
+    if (!mockOraclePrimaryHealthy) {
       return {
         coingecko: { successCount: 0, failureCount: 10, failureRate: 1.0, lastFailure: new Date().toISOString() },
         chainlink: { successCount: 8, failureCount: 2, failureRate: 0.2, lastFailure: null },
@@ -119,7 +119,7 @@ jest.mock('../../src/services/oracleService', () => ({
     };
   }),
   resolveWithFallback: jest.fn(async ({ category }) => {
-    if (!oraclePrimaryHealthy) {
+    if (!mockOraclePrimaryHealthy) {
       // Primary (coingecko) is down — fallback to chainlink
       return { outcome: 'yes', confidence: 0.82, source: 'chainlink', usedFallback: true };
     }
@@ -169,10 +169,10 @@ describe('E2E Failure Recovery Testing (#125)', () => {
 
   beforeEach(() => {
     // Reset to healthy state before each test
-    sorobanHealthy = true;
-    stellarHealthy = true;
-    dbHealthy = true;
-    oraclePrimaryHealthy = true;
+    mockSorobanHealthy = true;
+    mockStellarHealthy = true;
+    mockDbHealthy = true;
+    mockOraclePrimaryHealthy = true;
     jest.clearAllMocks();
     transactionRetryQueue._jobs = [];
     transactionRetryQueue.recentFailures = [];
@@ -183,7 +183,7 @@ describe('E2E Failure Recovery Testing (#125)', () => {
 
   describe('Backend Service Failures', () => {
     it('health endpoint reports degraded when Soroban RPC is down', async () => {
-      sorobanHealthy = false;
+      mockSorobanHealthy = false;
 
       const res = await request(app).get('/api/health');
 
@@ -193,7 +193,7 @@ describe('E2E Failure Recovery Testing (#125)', () => {
     });
 
     it('health endpoint reports degraded when Stellar Horizon is down', async () => {
-      stellarHealthy = false;
+      mockStellarHealthy = false;
 
       const res = await request(app).get('/api/health');
 
@@ -205,7 +205,7 @@ describe('E2E Failure Recovery Testing (#125)', () => {
     });
 
     it('health endpoint reports degraded when database is disconnected', async () => {
-      dbHealthy = false;
+      mockDbHealthy = false;
 
       const res = await request(app).get('/api/health');
 
@@ -216,9 +216,9 @@ describe('E2E Failure Recovery Testing (#125)', () => {
     });
 
     it('liveness probe always returns alive regardless of service state', async () => {
-      sorobanHealthy = false;
-      stellarHealthy = false;
-      dbHealthy = false;
+      mockSorobanHealthy = false;
+      mockStellarHealthy = false;
+      mockDbHealthy = false;
 
       const res = await request(app).get('/api/health/live');
 
@@ -227,7 +227,7 @@ describe('E2E Failure Recovery Testing (#125)', () => {
     });
 
     it('readiness probe returns not-ready when critical services are down', async () => {
-      stellarHealthy = false;
+      mockStellarHealthy = false;
 
       const res = await request(app).get('/api/health/ready');
 
@@ -236,8 +236,8 @@ describe('E2E Failure Recovery Testing (#125)', () => {
     });
 
     it('readiness probe returns ready when all critical services are up', async () => {
-      stellarHealthy = true;
-      dbHealthy = true;
+      mockStellarHealthy = true;
+      mockDbHealthy = true;
 
       const res = await request(app).get('/api/health/ready');
 
@@ -250,7 +250,7 @@ describe('E2E Failure Recovery Testing (#125)', () => {
 
   describe('Oracle Downtime and Fallback Recovery', () => {
     it('oracle health endpoint shows primary source as unhealthy when down', async () => {
-      oraclePrimaryHealthy = false;
+      mockOraclePrimaryHealthy = false;
 
       const res = await request(app).get('/api/oracle/health');
 
@@ -265,7 +265,7 @@ describe('E2E Failure Recovery Testing (#125)', () => {
     });
 
     it('oracle health endpoint shows fallback sources as healthy during primary outage', async () => {
-      oraclePrimaryHealthy = false;
+      mockOraclePrimaryHealthy = false;
 
       const res = await request(app).get('/api/oracle/health');
 
@@ -277,7 +277,7 @@ describe('E2E Failure Recovery Testing (#125)', () => {
     });
 
     it('oracle resolves via fallback when primary source is down', async () => {
-      oraclePrimaryHealthy = false;
+      mockOraclePrimaryHealthy = false;
 
       const result = await oracleService.resolveWithFallback({
         marketId: 'market-test-1',
@@ -292,7 +292,7 @@ describe('E2E Failure Recovery Testing (#125)', () => {
     });
 
     it('oracle resolves via primary when healthy', async () => {
-      oraclePrimaryHealthy = true;
+      mockOraclePrimaryHealthy = true;
 
       const result = await oracleService.resolveWithFallback({
         marketId: 'market-test-2',
@@ -319,7 +319,7 @@ describe('E2E Failure Recovery Testing (#125)', () => {
 
   describe('Transaction Retry Queue Recovery', () => {
     it('enqueues transaction when Soroban submission fails', async () => {
-      sorobanHealthy = false;
+      mockSorobanHealthy = false;
       sorobanService.submitSignedTransaction.mockRejectedValueOnce(
         new Error('Soroban RPC unavailable')
       );
@@ -390,15 +390,15 @@ describe('E2E Failure Recovery Testing (#125)', () => {
   describe('Full System Recovery Workflow', () => {
     it('system transitions from degraded to healthy when services recover', async () => {
       // Step 1: Simulate outage
-      sorobanHealthy = false;
-      stellarHealthy = false;
+      mockSorobanHealthy = false;
+      mockStellarHealthy = false;
 
       const degradedRes = await request(app).get('/api/health');
       expect([200, 503]).toContain(degradedRes.status);
 
       // Step 2: Services recover
-      sorobanHealthy = true;
-      stellarHealthy = true;
+      mockSorobanHealthy = true;
+      mockStellarHealthy = true;
 
       const recoveredRes = await request(app).get('/api/health');
       expect(recoveredRes.status).toBe(200);
@@ -409,7 +409,7 @@ describe('E2E Failure Recovery Testing (#125)', () => {
 
     it('oracle transitions from fallback to primary when primary recovers', async () => {
       // Step 1: Primary down — use fallback
-      oraclePrimaryHealthy = false;
+      mockOraclePrimaryHealthy = false;
       const fallbackResult = await oracleService.resolveWithFallback({
         marketId: 'market-recovery-1',
         category: 'crypto',
@@ -418,7 +418,7 @@ describe('E2E Failure Recovery Testing (#125)', () => {
       expect(fallbackResult.usedFallback).toBe(true);
 
       // Step 2: Primary recovers
-      oraclePrimaryHealthy = true;
+      mockOraclePrimaryHealthy = true;
       const primaryResult = await oracleService.resolveWithFallback({
         marketId: 'market-recovery-2',
         category: 'crypto',
@@ -442,7 +442,7 @@ describe('E2E Failure Recovery Testing (#125)', () => {
       const { jobId } = transactionRetryQueue.enqueue.mock.results[0].value;
 
       // Step 2: RPC recovers — simulate retry success
-      sorobanHealthy = true;
+      mockSorobanHealthy = true;
       transactionRetryQueue._simulateRecovery(jobId);
 
       const snapshot = transactionRetryQueue.getRecoverySnapshot();

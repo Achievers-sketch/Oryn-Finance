@@ -33,12 +33,24 @@ const insuranceRoutes = require('./src/routes/insurance');
 const riskAnalyticsRoutes = require('./src/routes/riskAnalytics');
 const sentimentRoutes = require('./src/routes/sentiment');
 const taxReportsRoutes = require('./src/routes/taxReports');
+const treasuryRoutes = require('./src/routes/treasury');
+const volatilityRoutes = require('./src/routes/volatility');
 const geoFailoverRoutes = require('./src/routes/geoFailover');
 const explorerRoutes = require('./src/routes/explorer');                   // Issue #83
 const contractVersionRoutes = require('./src/routes/contractVersions');    // Issue #150
 const contractDependencyRoutes = require('./src/routes/contractDependencies'); // Issue #124
 const liquidityRebalancingRoutes = require('./src/routes/liquidityRebalancing'); // Issue #163
 const governanceTimelockRoutes = require('./src/routes/governanceTimelock'); // Issue #165
+const timezonesRoutes = require('./src/routes/timezones'); // Issue #166
+const whaleActivityRoutes = require('./src/routes/whaleActivity'); // Issue #169
+const appealsRoutes = require('./src/routes/appeals'); // Issue #167
+const mobileTradingRoutes = require('./src/routes/mobileTrading'); // Issue #168
+const liquidityPositionRoutes = require('./src/routes/liquidityPositions');
+const governanceDelegationRoutes = require('./src/routes/governanceDelegation');
+const correlationRoutes = require('./src/routes/correlation');
+const marketAlertsRoutes = require('./src/routes/marketAlerts');
+const messagesRoutes = require('./src/routes/messages');
+const reportsRoutes = require('./src/routes/reports');
 
 
 // Import services
@@ -227,9 +239,15 @@ class OrynBackendServer {
     this.app.use('/api/insurance', insuranceRoutes);
     this.app.use('/api/risk', riskAnalyticsRoutes);
     this.app.use('/api/sentiment', sentimentRoutes);
+    this.app.use('/api/treasury', treasuryRoutes);
+    this.app.use('/api/volatility', volatilityRoutes);
     this.app.use('/api/geo-failover', geoFailoverRoutes);
+    this.app.use('/api/reports', reportsRoutes);
     this.app.use('/api/liquidity', liquidityRebalancingRoutes); // Issue #163 (rebalancing sub-route)
     this.app.use('/api/governance/timelock', governanceTimelockRoutes); // Issue #165
+    this.app.use('/api/governance/delegate', governanceDelegationRoutes);
+    this.app.use('/api/correlation', correlationRoutes);
+    this.app.use('/api/market-alerts', marketAlertsRoutes);
 
     // Transaction routes (mixed auth - some endpoints require auth, others don't)
     this.app.use('/api/transactions', transactionRoutes);
@@ -257,6 +275,12 @@ class OrynBackendServer {
 
     // Mobile Trading Mode routes (Issue #168)
     this.app.use('/api/mobile-trading', mobileTradingRoutes);
+
+    // Liquidity Position Management routes
+    this.app.use('/api/liquidity-positions', liquidityPositionRoutes);
+
+    // User-to-user messages
+    this.app.use('/api/messages', messagesRoutes);
 
     // Protected routes
     this.app.use('/api/trades', tradeRoutes);
@@ -340,7 +364,7 @@ class OrynBackendServer {
         logger.info('HTTP server closed');
 
         // Close database connection
-        require('mongoose').connection.close(() => {
+        require('mongoose').connection.close(async () => {
           logger.info('MongoDB connection closed');
 
           // Stop background jobs
