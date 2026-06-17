@@ -10,6 +10,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:stress": "jest --config jest.stress.config.js --runInBand",
     "seed": "node src/utils/seedDatabase.js",
     "build": "echo 'No build step required for Node.js'",
     "lint": "eslint .",

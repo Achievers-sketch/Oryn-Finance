@@ -342,4 +342,42 @@ mod tests {
         set_timestamp(&env, 30 + DISPUTE_PERIOD);
         client.finalize(&market);
     }
+
+    #[test]
+    fn test_stress_many_oracle_submissions_reach_consensus() {
+        let env = Env::default();
+        env.mock_all_auths();
+        set_timestamp(&env, 100);
+
+        let (client, admin, contract_id) = setup(&env, 3);
+        let proof = proof(&env);
+
+        let oracle_a = Address::generate(&env);
+        let oracle_b = Address::generate(&env);
+        let oracle_c = Address::generate(&env);
+        let oracle_d = Address::generate(&env);
+        let oracle_e = Address::generate(&env);
+
+        client.register_oracle(&admin, &oracle_a, &100);
+        client.register_oracle(&admin, &oracle_b, &100);
+        client.register_oracle(&admin, &oracle_c, &100);
+        client.register_oracle(&admin, &oracle_d, &100);
+        client.register_oracle(&admin, &oracle_e, &100);
+
+        for _ in 0..10 {
+            let market = Address::generate(&env);
+            client.submit_resolution(&oracle_a, &market, &true, &proof);
+            client.submit_resolution(&oracle_b, &market, &true, &proof);
+            client.submit_resolution(&oracle_c, &market, &true, &proof);
+
+            let resolved: MarketResolution = env.as_contract(&contract_id, || {
+                env.storage()
+                    .persistent()
+                    .get(&StorageKey::Market(market.clone()))
+                    .unwrap()
+            });
+            assert_eq!(resolved.outcome, Some(true));
+            assert_eq!(resolved.votes.get(true), Some(3));
+        }
+    }
 }

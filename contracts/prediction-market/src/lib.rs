@@ -696,4 +696,39 @@ mod tests {
         client.claim(&user);
         client.claim(&user);
     }
+
+    #[test]
+    fn test_stress_high_volume_trading_maintains_position_integrity() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let id = env.register_contract(None, PredictionMarket);
+        let client = PredictionMarketClient::new(&env, &id);
+
+        let admin = Address::generate(&env);
+        let oracle = Address::generate(&env);
+        let trader = Address::generate(&env);
+        client.initialize(&admin, &oracle, &make_market(&env, &oracle));
+
+        let mut expected_yes: i128 = 0;
+        let mut expected_no: i128 = 0;
+
+        for i in 0..50 {
+            if i % 3 == 0 {
+                client.buy(&trader, &TokenType::Yes, &100_000_000, &500_000_000);
+                expected_yes += 100_000_000;
+            } else if i % 3 == 1 {
+                client.buy(&trader, &TokenType::No, &100_000_000, &500_000_000);
+                expected_no += 100_000_000;
+            } else if expected_yes >= 50_000_000 {
+                client.sell(&trader, &TokenType::Yes, &50_000_000, &550_000_000);
+                expected_yes -= 50_000_000;
+            }
+        }
+
+        let pos = client.get_position(&trader);
+        assert_eq!(pos.yes_tokens, expected_yes);
+        assert_eq!(pos.no_tokens, expected_no);
+        assert!(pos.yes_tokens >= 0);
+        assert!(pos.no_tokens >= 0);
+    }
 }

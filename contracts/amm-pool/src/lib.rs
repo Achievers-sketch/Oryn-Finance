@@ -592,4 +592,34 @@ mod tests {
         assert_eq!(info.fee_rate, 50);
         assert_eq!(info.total_fees_collected, 0);
     }
+
+    #[test]
+    fn test_stress_rapid_swaps_maintain_pool_invariants() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (client, _) = setup(&env, 30);
+
+        let provider = Address::generate(&env);
+        client.add_liquidity(&provider, &10_000_000_000);
+
+        let trader = Address::generate(&env);
+        let initial_k = client.get_yes_reserve_pub() * client.get_no_reserve_pub();
+
+        for i in 0..25 {
+            let token = if i % 2 == 0 {
+                TokenType::Yes
+            } else {
+                TokenType::No
+            };
+            let amount_in = 100_000 + (i as i128 * 10_000);
+            let out = client.swap(&trader, &token, &amount_in, &0);
+            assert!(out > 0);
+
+            let yes = client.get_yes_reserve_pub();
+            let no = client.get_no_reserve_pub();
+            assert!(yes > 0);
+            assert!(no > 0);
+            assert!(yes * no <= initial_k);
+        }
+    }
 }
