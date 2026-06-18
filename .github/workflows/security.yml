@@ -1,0 +1,191 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run every Monday at 9:00 AM UTC
+    - cron: '0 9 * * 1'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit-frontend:
+    name: Frontend Security Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Generate Lockfile
+        run: npm install --package-lock-only
+
+      - name: Run Audit
+        run: |
+          npm audit --json > audit-report.json || true
+          cat audit-report.json
+
+      - name: Generate Vulnerability Report
+        env:
+          APP_NAME: "Frontend Package"
+        run: |
+          node -e "
+          const fs = require('fs');
+          let audit;
+          try {
+            audit = JSON.parse(fs.readFileSync('audit-report.json', 'utf8'));
+          } catch (e) {
+            console.error('Failed to parse audit report JSON:', e);
+            process.exit(1);
+          }
+          
+          const counts = audit.metadata.vulnerabilities || { info: 0, low: 0, moderate: 0, high: 0, critical: 0 };
+          const total = (counts.info || 0) + (counts.low || 0) + (counts.moderate || 0) + (counts.high || 0) + (counts.critical || 0);
+          
+          let summary = '### 🛡️ npm audit - ' + process.env.APP_NAME + '\n\n';
+          summary += '| Severity | Count |\n';
+          summary += '| --- | --- |\n';
+          summary += '| 🔴 Critical | ' + (counts.critical || 0) + ' |\n';
+          summary += '| 🟠 High | ' + (counts.high || 0) + ' |\n';
+          summary += '| 🟡 Moderate | ' + (counts.moderate || 0) + ' |\n';
+          summary += '| 🔵 Low | ' + (counts.low || 0) + ' |\n';
+          summary += '| ⚪ Info | ' + (counts.info || 0) + ' |\n\n';
+          
+          if (total === 0) {
+            summary += '✅ No vulnerabilities found!\n';
+          } else {
+            summary += '⚠️ Found ' + total + ' vulnerability/vulnerabilities.\n\n';
+            summary += '| Package | Severity | Dependency Type | Vulnerable Range | Fix Available |\n';
+            summary += '| --- | --- | --- | --- | --- |\n';
+            
+            const vulns = audit.vulnerabilities || {};
+            for (const [pkg, details] of Object.entries(vulns)) {
+              let fix = 'No';
+              if (details.fixAvailable) {
+                if (typeof details.fixAvailable === 'boolean') {
+                  fix = 'Yes';
+                } else {
+                  fix = 'Yes (upgrade to ' + details.fixAvailable.name + '@' + details.fixAvailable.version + ')';
+                }
+              }
+              summary += '| \`' + pkg + '\` | \`' + details.severity + '\` | ' + (details.isDirect ? 'Direct' : 'Transitive') + ' | \`' + details.range + '\` | ' + fix + ' |\n';
+            }
+          }
+          
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+          
+          if ((counts.critical || 0) > 0 || (counts.high || 0) > 0) {
+            console.log('❌ High or critical vulnerabilities detected! Failing job.');
+            process.exit(1);
+          } else {
+            console.log('✅ No high or critical vulnerabilities detected.');
+          }
+          "
+
+      - name: Upload Vulnerability Report Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-security-audit-report
+          path: frontend/audit-report.json
+          retention-days: 30
+
+  audit-backend:
+    name: Backend Security Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Generate Lockfile
+        run: npm install --package-lock-only
+
+      - name: Run Audit
+        run: |
+          npm audit --json > audit-report.json || true
+          cat audit-report.json
+
+      - name: Generate Vulnerability Report
+        env:
+          APP_NAME: "Backend Package"
+        run: |
+          node -e "
+          const fs = require('fs');
+          let audit;
+          try {
+            audit = JSON.parse(fs.readFileSync('audit-report.json', 'utf8'));
+          } catch (e) {
+            console.error('Failed to parse audit report JSON:', e);
+            process.exit(1);
+          }
+          
+          const counts = audit.metadata.vulnerabilities || { info: 0, low: 0, moderate: 0, high: 0, critical: 0 };
+          const total = (counts.info || 0) + (counts.low || 0) + (counts.moderate || 0) + (counts.high || 0) + (counts.critical || 0);
+          
+          let summary = '### 🛡️ npm audit - ' + process.env.APP_NAME + '\n\n';
+          summary += '| Severity | Count |\n';
+          summary += '| --- | --- |\n';
+          summary += '| 🔴 Critical | ' + (counts.critical || 0) + ' |\n';
+          summary += '| 🟠 High | ' + (counts.high || 0) + ' |\n';
+          summary += '| 🟡 Moderate | ' + (counts.moderate || 0) + ' |\n';
+          summary += '| 🔵 Low | ' + (counts.low || 0) + ' |\n';
+          summary += '| ⚪ Info | ' + (counts.info || 0) + ' |\n\n';
+          
+          if (total === 0) {
+            summary += '✅ No vulnerabilities found!\n';
+          } else {
+            summary += '⚠️ Found ' + total + ' vulnerability/vulnerabilities.\n\n';
+            summary += '| Package | Severity | Dependency Type | Vulnerable Range | Fix Available |\n';
+            summary += '| --- | --- | --- | --- | --- |\n';
+            
+            const vulns = audit.vulnerabilities || {};
+            for (const [pkg, details] of Object.entries(vulns)) {
+              let fix = 'No';
+              if (details.fixAvailable) {
+                if (typeof details.fixAvailable === 'boolean') {
+                  fix = 'Yes';
+                } else {
+                  fix = 'Yes (upgrade to ' + details.fixAvailable.name + '@' + details.fixAvailable.version + ')';
+                }
+              }
+              summary += '| \`' + pkg + '\` | \`' + details.severity + '\` | ' + (details.isDirect ? 'Direct' : 'Transitive') + ' | \`' + details.range + '\` | ' + fix + ' |\n';
+            }
+          }
+          
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+          
+          if ((counts.critical || 0) > 0 || (counts.high || 0) > 0) {
+            console.log('❌ High or critical vulnerabilities detected! Failing job.');
+            process.exit(1);
+          } else {
+            console.log('✅ No high or critical vulnerabilities detected.');
+          }
+          "
+
+      - name: Upload Vulnerability Report Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-security-audit-report
+          path: backend/audit-report.json
+          retention-days: 30
