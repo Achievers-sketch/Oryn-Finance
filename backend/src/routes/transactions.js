@@ -1,5 +1,6 @@
 const express = require('express');
 const TransactionController = require('../controllers/transactionController');
+const TransactionHistoryController = require('../controllers/transactionHistoryController');
 const { authenticateToken } = require('../middleware/auth');
 const { transactionValidations } = require('../middleware/validation');
 const rateLimit = require('express-rate-limit');
@@ -100,5 +101,14 @@ router.post('/submit',
   transactionValidations.submitTransaction,
   TransactionController.submitSignedTransaction
 );
+
+// Transaction History endpoints (read-only with pagination)
+router.get('/history', queryLimit, TransactionHistoryController.getTransactionHistory);
+router.get('/history/user/:userAddress', queryLimit, TransactionHistoryController.getUserTransactionHistory);
+router.get('/history/market/:marketId', queryLimit, TransactionHistoryController.getMarketTransactionHistory);
+router.get('/history/tx/:txHash', queryLimit, TransactionHistoryController.getTransactionByHash);
+router.get('/history/statistics', queryLimit, TransactionHistoryController.getTransactionStatistics);
+router.get('/history/investments', queryLimit, TransactionHistoryController.getInvestmentEvents);
+router.get('/history/withdrawals', queryLimit, TransactionHistoryController.getWithdrawalEvents);
 
 module.exports = router;

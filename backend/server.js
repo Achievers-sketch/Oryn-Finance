@@ -58,6 +58,7 @@ const riskAssessmentRoutes = require('./src/routes/riskAssessment'); // Issue #1
 const backgroundJobs = require('./src/services/backgroundJobs');
 const websocketHandler = require('./src/services/websocketHandler');
 const contractEventIndexer = require('./src/services/contractEventIndexer');
+const eventReconciliationService = require('./src/services/eventReconciliationService');
 const transactionRetryQueue = require('./src/services/transactionRetryQueue'); // Issue #23
 const pushNotificationService = require('./src/services/pushNotificationService');
 const encryptionService = require('./src/services/encryptionService');
@@ -348,6 +349,15 @@ class OrynBackendServer {
         logger.warn('Contract event indexing will be disabled');
       }
 
+      // Start event reconciliation service
+      try {
+        eventReconciliationService.start();
+        logger.info('Event reconciliation service started');
+      } catch (error) {
+        logger.warn('Failed to start event reconciliation service:', error.message);
+        logger.warn('Event reconciliation will be disabled');
+      }
+
       // Start geo-failover health monitoring
       try {
         geoFailoverService.start();
@@ -379,6 +389,14 @@ class OrynBackendServer {
             logger.info('Contract event indexer stopped');
           } catch (error) {
             logger.warn('Error stopping contract event indexer:', error.message);
+          }
+
+          // Stop event reconciliation service
+          try {
+            eventReconciliationService.stop();
+            logger.info('Event reconciliation service stopped');
+          } catch (error) {
+            logger.warn('Error stopping event reconciliation service:', error.message);
           }
 
           // Stop geo-failover monitoring

@@ -139,6 +139,9 @@ class ContractEventIndexer {
         return;
       }
 
+      // Extract event metadata for transaction history
+      const eventMetadata = this.extractEventMetadata(contractName, topic, value);
+
       await IndexedEvent.updateOne(
         { txHash, topic, contractId },
         {
@@ -149,7 +152,8 @@ class ContractEventIndexer {
             txHash,
             ledger,
             payload: value,
-            processedAt: new Date()
+            processedAt: new Date(),
+            ...eventMetadata
           }
         },
         { upsert: true }
@@ -165,6 +169,58 @@ class ContractEventIndexer {
     } catch (error) {
       logger.error('Failed to process event:', error, { event });
     }
+  }
+
+  /**
+   * Extract event metadata for transaction history
+   */
+  extractEventMetadata(contractName, topic, value) {
+    const metadata = {
+      eventType: 'other',
+      userAddress: null,
+      marketId: null,
+      amount: null,
+      tokenType: null
+    };
+
+    // Extract common fields from event payload
+    if (value.user) metadata.userAddress = value.user;
+    if (value.investor) metadata.userAddress = value.investor;
+    if (value.withdrawer) metadata.userAddress = value.withdrawer;
+    if (value.marketId) metadata.marketId = value.marketId;
+    if (value.amount) metadata.amount = value.amount;
+    if (value.investmentAmount) metadata.amount = value.investmentAmount;
+    if (value.withdrawalAmount) metadata.amount = value.withdrawalAmount;
+    if (value.tokenType) metadata.tokenType = value.tokenType.toLowerCase();
+    if (value.yesToken) metadata.tokenType = 'yes';
+    if (value.noToken) metadata.tokenType = 'no';
+
+    // Map event types
+    const eventTypeMapping = {
+      'investment_made': 'investment',
+      'investment_withdrawn': 'withdrawal',
+      'liquidity_withdrawn': 'withdrawal',
+      'trade_executed': 'trade',
+      'liquidity_added': 'liquidity_add',
+      'liquidity_removed': 'liquidity_remove',
+      'market_created': 'market_creation',
+      'market_resolved': 'market_resolution',
+      'winnings_claimed': 'winnings_claimed',
+      'swap_executed': 'swap',
+      'proposal_created': 'governance',
+      'vote_cast': 'governance',
+      'proposal_executed': 'governance',
+      'resolution_submitted': 'oracle',
+      'resolution_disputed': 'oracle',
+      'resolution_finalized': 'oracle',
+      'insurance_purchased': 'insurance',
+      'claim_submitted': 'insurance',
+      'reputation_updated': 'reputation'
+    };
+
+    metadata.eventType = eventTypeMapping[topic] || 'other';
+
+    return metadata;
   }
 
   /**
@@ -204,11 +260,14 @@ class ContractEventIndexer {
         'position_updated': this.handlePositionUpdated.bind(this),
         'market_resolved': this.handleMarketResolved.bind(this),
         'winnings_claimed': this.handleWinningsClaimed.bind(this),
+        'investment_made': this.handleInvestmentMade.bind(this),
+        'investment_withdrawn': this.handleInvestmentWithdrawn.bind(this),
       },
       AMM_POOL: {
         'swap_executed': this.handleSwapExecuted.bind(this),
         'liquidity_added': this.handleLiquidityAdded.bind(this),
         'liquidity_removed': this.handleLiquidityRemoved.bind(this),
+        'liquidity_withdrawn': this.handleLiquidityWithdrawn.bind(this),
       },
       ORACLE_RESOLVER: {
         'resolution_submitted': this.handleResolutionSubmitted.bind(this),
@@ -226,6 +285,10 @@ class ContractEventIndexer {
       INSURANCE: {
         'insurance_purchased': this.handleInsurancePurchased.bind(this),
         'claim_submitted': this.handleClaimSubmitted.bind(this),
+      },
+      TREASURY: {
+        'investment_made': this.handleInvestmentMade.bind(this),
+        'investment_withdrawn': this.handleInvestmentWithdrawn.bind(this),
       }
     };
 
@@ -743,6 +806,72 @@ class ContractEventIndexer {
 
   async handleClaimSubmitted(eventValue, metadata) {
     logger.info('Claim submitted event:', eventValue);
+  }
+
+  /**
+   * Handle investment made events
+   */
+  async handleInvestmentMade(eventValue, metadata) {
+    try {
+      const {
+        investor,
+        marketId,
+        amount,
+        tokenType,
+        timestamp
+      } = eventValue;
+
+      logger.info(`Investment made: ${amount} ${tokenType} by ${investor} in market ${marketId}`);
+      
+      // Additional investment tracking logic can be added here
+      // For now, the event is already stored in IndexedEvent with proper metadata
+    } catch (error) {
+      logger.error('Failed to handle investment made event:', error);
+    }
+  }
+
+  /**
+   * Handle investment withdrawn events
+   */
+  async handleInvestmentWithdrawn(eventValue, metadata) {
+    try {
+      const {
+        investor,
+        marketId,
+        amount,
+        tokenType,
+        timestamp
+      } = eventValue;
+
+      logger.info(`Investment withdrawn: ${amount} ${tokenType} by ${investor} from market ${marketId}`);
+      
+      // Additional withdrawal tracking logic can be added here
+      // For now, the event is already stored in IndexedEvent with proper metadata
+    } catch (error) {
+      logger.error('Failed to handle investment withdrawn event:', error);
+    }
+  }
+
+  /**
+   * Handle liquidity withdrawn events (separate from liquidity_removed)
+   */
+  async handleLiquidityWithdrawn(eventValue, metadata) {
+    try {
+      const {
+        withdrawer,
+        poolAddress,
+        amountA,
+        amountB,
+        timestamp
+      } = eventValue;
+
+      logger.info(`Liquidity withdrawn: ${amountA} + ${amountB} by ${withdrawer} from pool ${poolAddress}`);
+      
+      // Additional liquidity withdrawal tracking logic can be added here
+      // For now, the event is already stored in IndexedEvent with proper metadata
+    } catch (error) {
+      logger.error('Failed to handle liquidity withdrawn event:', error);
+    }
   }
 }
 
