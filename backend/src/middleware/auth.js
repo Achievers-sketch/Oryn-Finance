@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const StellarSdk = require('stellar-sdk');
 const logger = require('../config/logger');
+const auditService = require('../services/auditService');
 // const { User } = require('../models'); // Temporarily disabled for non-DB mode
 
 const REFRESH_TOKEN_EXPIRY = '30d';
@@ -183,6 +184,13 @@ class AuthMiddleware {
         addressMatch: isAdminByAddress,
       });
 
+      auditService.admin(req, {
+        action: 'admin.access_denied',
+        status: 'failure',
+        description: `Admin access denied for ${req.method} ${req.originalUrl}`,
+        metadata: { method: req.method, route: req.originalUrl }
+      });
+
       return res.status(403).json({
         success: false,
         message: 'Admin privileges required'
@@ -192,6 +200,12 @@ class AuthMiddleware {
     logger.info('Admin access granted', {
       walletAddress: req.user.walletAddress,
       via: isAdminByJwtRole ? 'jwt-role' : 'address-list',
+    });
+
+    auditService.admin(req, {
+      action: 'admin.access_granted',
+      description: `Admin access granted for ${req.method} ${req.originalUrl}`,
+      metadata: { method: req.method, route: req.originalUrl, via: isAdminByJwtRole ? 'jwt-role' : 'address-list' }
     });
 
     next();

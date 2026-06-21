@@ -1,5 +1,6 @@
 const sorobanService = require('../services/sorobanService');
 const logger = require('../config/logger');
+const auditService = require('../services/auditService');
 const { ValidationError, BadRequestError } = require('../middleware/errorHandler');
 const transactionRetryQueue = require('../services/transactionRetryQueue');
 
@@ -157,6 +158,12 @@ class TransactionController {
         question: question.substring(0, 50),
         category: normalizedCategory,
         marketId: savedMarket.marketId
+      });
+
+      await auditService.transaction('transaction.created', req, {
+        description: `Market "${question.substring(0, 50)}" created`,
+        target: { type: 'market', id: savedMarket.marketId },
+        metadata: { walletAddress, category: normalizedCategory }
       });
 
       // Return mock XDR for frontend compatibility
@@ -621,6 +628,11 @@ class TransactionController {
           retryJobId: retry.jobId
         });
 
+        await auditService.transaction('transaction.failed', req, {
+          description: 'Signed transaction submission failed; scheduled background retries',
+          metadata: { error: submitError.message, retryJobId: retry.jobId }
+        });
+
         return res.status(503).json({
           success: false,
           error: {
@@ -634,6 +646,12 @@ class TransactionController {
       logger.info('Successfully submitted signed transaction', {
         txHash: result.hash,
         status: result.status
+      });
+
+      await auditService.transaction('transaction.executed', req, {
+        description: 'Signed transaction submitted to the network',
+        target: { type: 'transaction', id: result.hash },
+        metadata: { status: result.status }
       });
 
       res.json({

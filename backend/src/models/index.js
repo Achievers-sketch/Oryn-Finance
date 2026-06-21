@@ -10,6 +10,7 @@ const WhaleTransaction = require('./WhaleTransaction');
 const WhaleAlert = require('./WhaleAlert');
 const Appeal = require('./Appeal');
 const YieldSnapshot = require('./YieldSnapshot');
+const AuditLog = require('./AuditLog');
 
 module.exports = {
   Market,
@@ -23,5 +24,6 @@ module.exports = {
   WhaleTransaction,
   WhaleAlert,
   Appeal,
-  YieldSnapshot
+  YieldSnapshot,
+  AuditLog
 };

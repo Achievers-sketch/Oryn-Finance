@@ -1243,6 +1243,54 @@ export const governanceTimelockService = {
 };
 
 // Combined API service object
+// Audit Log Services (Issue #194)
+export interface AuditLogQuery {
+  category?: string;
+  action?: string;
+  status?: string;
+  actor?: string;
+  target?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}
+
+export const auditService = {
+  buildQuery(params?: AuditLogQuery): string {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, String(value));
+        }
+      });
+    }
+    return queryParams.toString();
+  },
+
+  async getLogs(params?: AuditLogQuery): Promise<any> {
+    const query = this.buildQuery(params);
+    const endpoint = query ? `${ENDPOINTS.AUDIT_LOGS}?${query}` : ENDPOINTS.AUDIT_LOGS;
+    const response = await apiClient.get(endpoint);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch audit logs');
+    return response.data;
+  },
+
+  async getStats(): Promise<any> {
+    const response = await apiClient.get(ENDPOINTS.AUDIT_STATS);
+    if (!response.success) throw new Error(response.message || 'Failed to fetch audit stats');
+    return response.data;
+  },
+
+  // Returns the export endpoint (with query) so callers can trigger a download.
+  getExportUrl(format: 'json' | 'csv', params?: AuditLogQuery): string {
+    const query = this.buildQuery(params);
+    const sep = query ? '&' : '';
+    return `${ENDPOINTS.AUDIT_EXPORT}?format=${format}${sep}${query}`;
+  },
+};
+
 export const apiService = {
   health: healthService,
   network: networkService,
@@ -1267,4 +1315,5 @@ export const apiService = {
   oracleConsensus: oracleConsensusService,
   liquidityRebalancing: liquidityRebalancingService,
   governanceTimelock: governanceTimelockService,
+  audit: auditService,
 };

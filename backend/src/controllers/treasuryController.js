@@ -1,5 +1,6 @@
 const { TreasuryTransaction, Market, LiquidityPosition, Position, Trade } = require('../models');
 const logger = require('../config/logger');
+const auditService = require('../services/auditService');
 const { NotFoundError, ForbiddenError, ValidationError } = require('../middleware/errorHandler');
 
 class TreasuryController {
@@ -144,6 +145,12 @@ class TreasuryController {
         by: req.user.walletAddress
       });
 
+      await auditService.treasury('treasury.inflow_recorded', req, {
+        description: `Fee inflow of ${amount} ${asset} recorded`,
+        target: { type: 'treasury', id: transaction.transactionId },
+        metadata: { amount, asset, source }
+      });
+
       res.status(201).json({
         success: true,
         data: transaction,
@@ -183,6 +190,12 @@ class TreasuryController {
         by: req.user.walletAddress
       });
 
+      await auditService.treasury('treasury.distribution_recorded', req, {
+        description: `Distribution of ${amount} ${asset} recorded`,
+        target: { type: 'treasury', id: transaction.transactionId },
+        metadata: { amount, asset, toAddress: toAddress || req.user.walletAddress }
+      });
+
       res.status(201).json({
         success: true,
         data: transaction,
@@ -215,6 +228,12 @@ class TreasuryController {
       });
 
       await transaction.save();
+
+      await auditService.treasury('treasury.governance_action', req, {
+        description: `Governance action recorded: ${action}`,
+        target: { type: 'treasury', id: transaction.transactionId },
+        metadata: { action, proposalId }
+      });
 
       res.status(201).json({
         success: true,

@@ -17,6 +17,7 @@ A comprehensive Node.js backend server for the Oryn Finance prediction market pl
 - **Background Jobs**: Scheduled tasks for market monitoring, statistics updates, and data cleanup
 - **Security**: JWT authentication, rate limiting, input validation, and comprehensive error handling
 - **Monitoring**: Health checks, metrics, logging, and performance monitoring
+- **Audit Logging**: Centralized, structured audit trail of critical actions (auth, transactions, admin, treasury) with a dashboard and JSON/CSV export — see [AUDIT_LOGGING.md](./AUDIT_LOGGING.md)
 
 ## 📁 Project Structure
 
@@ -304,6 +305,25 @@ GET /api/leaderboard/traders?timeframe=week&limit=10
 #### Top Market Creators
 ```http
 GET /api/leaderboard/creators?limit=10
+```
+
+### Audit Logs API (Issue #194)
+
+All audit endpoints require an authenticated admin. See [AUDIT_LOGGING.md](./AUDIT_LOGGING.md) for full details.
+
+#### List Audit Logs
+```http
+GET /api/audit?category=authentication&status=failure&page=1&limit=50
+```
+
+#### Audit Statistics (dashboard)
+```http
+GET /api/audit/stats
+```
+
+#### Export Audit Logs (JSON or CSV)
+```http
+GET /api/audit/export?format=csv
 ```
 
 ## 🔌 WebSocket Events

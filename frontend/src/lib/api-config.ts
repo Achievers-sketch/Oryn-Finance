@@ -100,6 +100,11 @@ export const ENDPOINTS = {
   TREASURY_RECORD_OUTFLOW: '/treasury/distributions',
   TREASURY_RECORD_GOV_ACTION: '/treasury/governance-actions',
 
+  // Audit Logs (Issue #194)
+  AUDIT_LOGS: '/audit',
+  AUDIT_STATS: '/audit/stats',
+  AUDIT_EXPORT: '/audit/export',
+
   // Institutional Reports
   REPORTS_INSTITUTIONAL: '/reports/institutional',
   REPORTS_MARKET_EXPOSURE: '/reports/market-exposure',

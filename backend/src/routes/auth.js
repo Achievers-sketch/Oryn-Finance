@@ -8,6 +8,7 @@ const {
   COOKIE_REFRESH,
 } = require('../middleware/auth');
 const logger = require('../config/logger');
+const auditService = require('../services/auditService');
 
 /**
  * POST /auth/refresh
@@ -26,6 +27,10 @@ router.post('/refresh', asyncHandler(async (req, res) => {
 
   logger.info('Tokens refreshed via cookie');
 
+  auditService.auth('auth.token_refreshed', req, {
+    description: 'Access/refresh token pair rotated via refresh cookie'
+  });
+
   return res.json({
     success: true,
     message: 'Tokens refreshed',
@@ -40,6 +45,11 @@ router.post('/refresh', asyncHandler(async (req, res) => {
 router.post('/logout', (req, res) => {
   clearAuthCookies(res);
   logger.info('User logged out — auth cookies cleared');
+
+  auditService.auth('auth.logout', req, {
+    description: 'User logged out — auth cookies cleared'
+  });
+
   return res.json({ success: true, message: 'Logged out' });
 });
 
@@ -58,8 +68,22 @@ router.post('/token', asyncHandler(async (req, res) => {
     });
   }
 
-  // generateAuthToken validates the signature internally
-  await TokenService.generateAuthToken(walletAddress, signature, challenge);
+  const actor = {
+    walletAddress: walletAddress.toLowerCase(),
+    ip: req.ip,
+    userAgent: req.headers?.['user-agent'],
+  };
+
+  try {
+    // generateAuthToken validates the signature internally
+    await TokenService.generateAuthToken(walletAddress, signature, challenge);
+  } catch (err) {
+    auditService.auth('auth.login_failed', actor, {
+      description: 'Authentication failed during token issuance',
+      metadata: { reason: err.message },
+    });
+    throw err;
+  }
 
   const accessToken  = TokenService.generateAccessToken(walletAddress);
   const refreshToken = TokenService.generateRefreshToken(walletAddress);
@@ -68,6 +92,10 @@ router.post('/token', asyncHandler(async (req, res) => {
   setAuthCookies(res, { accessToken, refreshToken });
 
   logger.info('Auth cookies issued', { walletAddress: walletAddress.slice(0, 10) + '...' });
+
+  auditService.auth('auth.login', actor, {
+    description: 'User authenticated — httpOnly auth cookies issued',
+  });
 
   return res.json({
     success: true,
