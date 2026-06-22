@@ -75,4 +75,23 @@ const tradeLimiter = rateLimit({
   handler: (req, res, next, options) => onRateLimitExceeded(req, res, options, 'trade'),
 });
 
-module.exports = {};
+const burstLimiter = rateLimit({
+  windowMs: parseInt(process.env.RATE_LIMIT_BURST_WINDOW_MS) || 10 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_BURST_MAX_REQUESTS) || 20,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  handler: (req, res, next, options) => onRateLimitExceeded(req, res, options, 'burst'),
+});
+
+function getViolations() {
+  return violations.slice();
+}
+
+module.exports = {
+  globalLimiter,
+  authenticatedLimiter,
+  sensitiveLimiter,
+  tradeLimiter,
+  burstLimiter,
+  getViolations,
+};
