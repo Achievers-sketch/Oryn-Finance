@@ -95,3 +95,27 @@ export default function PortfolioAnalytics({ walletAddress }: { walletAddress: s
       .catch((err) => setError(err?.message || 'Failed to load analytics'))
       .finally(() => setLoading(false));
   }, [walletAddress, timeframe]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+        Loading performance analytics…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-sm text-destructive text-center py-8">{error}</div>
+    );
+  }
+
+  if (!yieldData && series.length === 0 && allocation.length === 0) {
+    return (
+      <div className="text-sm text-muted-foreground text-center py-8">
+        No analytics data yet. Start trading to see your performance.
+      </div>
+    );
+  }
+
+  const pnlPositive = (yieldData?.realizedPnL ?? 0) >= 0;
