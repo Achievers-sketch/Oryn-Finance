@@ -36,4 +36,8 @@ function skipHealthChecks(req) {
   return req.path === '/health' || req.path === '/api/health';
 }
 
+function userOrIpKey(req) {
+  return req.user?.walletAddress || req.user?.id || getClientIP(req);
+}
+
 module.exports = {};
