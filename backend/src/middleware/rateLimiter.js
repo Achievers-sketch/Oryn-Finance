@@ -66,4 +66,13 @@ const sensitiveLimiter = rateLimit({
   handler: (req, res, next, options) => onRateLimitExceeded(req, res, options, 'sensitive'),
 });
 
+const tradeLimiter = rateLimit({
+  windowMs: parseInt(process.env.RATE_LIMIT_TRADE_WINDOW_MS) || 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_TRADE_MAX_REQUESTS) || 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: userOrIpKey,
+  handler: (req, res, next, options) => onRateLimitExceeded(req, res, options, 'trade'),
+});
+
 module.exports = {};
