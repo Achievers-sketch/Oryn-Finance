@@ -44,6 +44,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import PortfolioAnalytics from '@/components/portfolio/PortfolioAnalytics';
 
 type TradeStatusFilter = 'all' | 'confirmed' | 'partially_filled' | 'pending' | 'failed' | 'cancelled';
 type TradeTypeFilter = 'all' | 'buy' | 'sell';
