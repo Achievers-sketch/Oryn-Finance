@@ -266,3 +266,31 @@ export default function PortfolioAnalytics({ walletAddress }: { walletAddress: s
           </div>
         </MagicCard>
       )}
+
+      {/* Fee breakdown */}
+      {yieldData && (
+        <MagicCard className="p-4">
+          <h3 className="text-sm font-semibold mb-3">Fee Breakdown</h3>
+          <div className="flex flex-wrap gap-6 text-sm">
+            <div>
+              <span className="text-muted-foreground">Platform: </span>
+              <span className="font-medium">{fmtUsd(yieldData.fees.platform)}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Stellar: </span>
+              <span className="font-medium">{fmtUsd(yieldData.fees.stellar)}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Total fees: </span>
+              <span className="font-medium">{fmtUsd(yieldData.fees.total)}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Trades: </span>
+              <span className="font-medium">{yieldData.tradeCounts.buys} buys / {yieldData.tradeCounts.sells} sells</span>
+            </div>
+          </div>
+        </MagicCard>
+      )}
+    </div>
+  );
+}
