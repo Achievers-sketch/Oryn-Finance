@@ -13,6 +13,7 @@ const logger = require('./src/config/logger');
 const { validateEnv } = require('./src/config/envValidator');
 const { errorHandler, notFound } = require('./src/middleware/errorHandler');
 const { detectAbuse } = require('./src/middleware/abuseDetection');
+const { globalLimiter, sensitiveLimiter, tradeLimiter, burstLimiter } = require('./src/middleware/rateLimiter'); // Issue #198
 
 // Import routes
 const authRoutes = require('./src/routes/auth');       // Issue #22: httpOnly cookie auth
