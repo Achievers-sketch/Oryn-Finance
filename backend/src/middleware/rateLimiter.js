@@ -58,4 +58,12 @@ const authenticatedLimiter = rateLimit({
   handler: (req, res, next, options) => onRateLimitExceeded(req, res, options, 'authenticated'),
 });
 
+const sensitiveLimiter = rateLimit({
+  windowMs: parseInt(process.env.RATE_LIMIT_SENSITIVE_WINDOW_MS) || 15 * 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_SENSITIVE_MAX_REQUESTS) || 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  handler: (req, res, next, options) => onRateLimitExceeded(req, res, options, 'sensitive'),
+});
+
 module.exports = {};
