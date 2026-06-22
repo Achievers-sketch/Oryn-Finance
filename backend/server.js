@@ -216,6 +216,9 @@ class OrynBackendServer {
   }
 
   setupRoutes() {
+    // Sensitive limiter — tighter window on auth endpoints to slow brute-force (Issue #198)
+    this.app.use('/api/auth', sensitiveLimiter);
+
     // Auth routes — refresh token, logout (Issue #22)
     this.app.use('/api/auth', authRoutes);
 
