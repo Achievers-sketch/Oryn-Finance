@@ -75,3 +75,23 @@ export default function PortfolioAnalytics({ walletAddress }: { walletAddress: s
   const [growth, setGrowth]       = useState<GrowthData | null>(null);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!walletAddress) return;
+    setLoading(true);
+    setError(null);
+    Promise.all([
+      apiService.get(`/portfolio/${walletAddress}/performance?timeframe=${timeframe}`),
+      apiService.get(`/portfolio/${walletAddress}/allocation?timeframe=${timeframe}`),
+      apiService.get(`/portfolio/${walletAddress}/yield?timeframe=${timeframe}`),
+      apiService.get(`/portfolio/${walletAddress}/growth`),
+    ])
+      .then(([perf, alloc, yld, grw]) => {
+        setSeries(perf.data?.series || []);
+        setAllocation(alloc.data?.allocation || []);
+        setYieldData(yld.data || null);
+        setGrowth(grw.data || null);
+      })
+      .catch((err) => setError(err?.message || 'Failed to load analytics'))
+      .finally(() => setLoading(false));
+  }, [walletAddress, timeframe]);
