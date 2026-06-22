@@ -236,3 +236,33 @@ export default function PortfolioAnalytics({ walletAddress }: { walletAddress: s
           </MagicCard>
         )}
       </div>
+
+      {/* Growth metrics */}
+      {growth && (
+        <MagicCard className="p-6">
+          <h3 className="text-sm font-semibold mb-4">Growth Metrics</h3>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div>
+              <p className="text-xs text-muted-foreground">7-day volume</p>
+              <p className="text-base font-semibold mt-1">{fmtUsd(growth.last7Days.volume)}</p>
+              <p className="text-xs text-muted-foreground">{growth.last7Days.trades} trades</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">30-day volume</p>
+              <p className="text-base font-semibold mt-1">{fmtUsd(growth.last30Days.volume)}</p>
+              <p className="text-xs text-muted-foreground">{growth.last30Days.trades} trades</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">All-time volume</p>
+              <p className="text-base font-semibold mt-1">{fmtUsd(growth.allTime.volume)}</p>
+              <p className="text-xs text-muted-foreground">{growth.allTime.trades} trades</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Week-over-week</p>
+              <p className={`text-base font-semibold mt-1 ${growth.weekOverWeek >= 0 ? 'text-success' : 'text-destructive'}`}>
+                {fmtPct(growth.weekOverWeek)}
+              </p>
+            </div>
+          </div>
+        </MagicCard>
+      )}
