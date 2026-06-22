@@ -49,4 +49,13 @@ const globalLimiter = rateLimit({
   handler: (req, res, next, options) => onRateLimitExceeded(req, res, options, 'global'),
 });
 
+const authenticatedLimiter = rateLimit({
+  windowMs: parseInt(process.env.RATE_LIMIT_AUTH_WINDOW_MS) || 15 * 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_AUTH_MAX_REQUESTS) || 300,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: userOrIpKey,
+  handler: (req, res, next, options) => onRateLimitExceeded(req, res, options, 'authenticated'),
+});
+
 module.exports = {};
