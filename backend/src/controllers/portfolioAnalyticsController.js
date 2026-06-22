@@ -176,4 +176,23 @@ class PortfolioAnalyticsController {
       res.status(500).json({ success: false, message: 'Failed to load growth metrics.' });
     }
   }
+
+  static async getSummary(req, res) {
+    try {
+      const { walletAddress } = req.params;
+      const tf = req.query.timeframe || '30d';
+      const [performance, allocation, yieldBreakdown, growth] = await Promise.all([
+        fetchPerformanceSeries(walletAddress, tf),
+        fetchAllocation(walletAddress, tf),
+        fetchYieldBreakdown(walletAddress, tf),
+        fetchGrowthMetrics(walletAddress),
+      ]);
+      res.json({ success: true, data: { performance, allocation, yield: yieldBreakdown, growth } });
+    } catch (error) {
+      logger.error('[PORTFOLIO-ANALYTICS] getSummary error', error);
+      res.status(500).json({ success: false, message: 'Failed to load portfolio summary.' });
+    }
+  }
 }
+
+module.exports = PortfolioAnalyticsController;
