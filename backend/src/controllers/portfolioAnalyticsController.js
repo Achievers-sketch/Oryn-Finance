@@ -144,4 +144,36 @@ class PortfolioAnalyticsController {
       res.status(500).json({ success: false, message: 'Failed to load performance data.' });
     }
   }
+
+  static async getAllocation(req, res) {
+    try {
+      const { walletAddress } = req.params;
+      const tf = req.query.timeframe || '30d';
+      res.json({ success: true, data: await fetchAllocation(walletAddress, tf) });
+    } catch (error) {
+      logger.error('[PORTFOLIO-ANALYTICS] getAllocation error', error);
+      res.status(500).json({ success: false, message: 'Failed to load allocation data.' });
+    }
+  }
+
+  static async getYieldBreakdown(req, res) {
+    try {
+      const { walletAddress } = req.params;
+      const tf = req.query.timeframe || '30d';
+      res.json({ success: true, data: await fetchYieldBreakdown(walletAddress, tf) });
+    } catch (error) {
+      logger.error('[PORTFOLIO-ANALYTICS] getYieldBreakdown error', error);
+      res.status(500).json({ success: false, message: 'Failed to load yield data.' });
+    }
+  }
+
+  static async getGrowthMetrics(req, res) {
+    try {
+      const { walletAddress } = req.params;
+      res.json({ success: true, data: await fetchGrowthMetrics(walletAddress) });
+    } catch (error) {
+      logger.error('[PORTFOLIO-ANALYTICS] getGrowthMetrics error', error);
+      res.status(500).json({ success: false, message: 'Failed to load growth metrics.' });
+    }
+  }
 }
