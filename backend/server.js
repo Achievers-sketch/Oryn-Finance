@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser'); // Issue #22: parse httpOnly cookies
 const { createServer } = require('http');
 const { Server } = require('socket.io');
