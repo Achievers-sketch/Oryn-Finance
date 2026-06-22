@@ -106,10 +106,16 @@ function getAbuseMetrics() {
       });
     }
   }
+  const suspicious = [];
+  for (const [ip, timestamps] of ipWindows.entries()) {
+    const count = timestamps.filter((t) => now - t < WINDOW_MS).length;
+    if (count >= SUSPICIOUS_THRESHOLD) suspicious.push({ ip, requestCount: count });
+  }
+  suspicious.sort((a, b) => b.requestCount - a.requestCount);
   return {
     currentlyBlocked: currentlyBlockedList.length,
     blockedIPs: currentlyBlockedList,
-    topSuspicious: [],
+    topSuspicious: suspicious.slice(0, 10),
     activeWindows: ipWindows.size,
   };
 }
