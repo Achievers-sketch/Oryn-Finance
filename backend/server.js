@@ -248,6 +248,7 @@ class OrynBackendServer {
     this.app.use('/api/market-alerts', marketAlertsRoutes);
     this.app.use('/api/risk-assessment', riskAssessmentRoutes); // Issue #187
     this.app.use('/api/audit', auditRoutes); // Issue #194 — centralized audit logging
+    this.app.use('/api/admin/rate-limit-metrics', rateLimitMetricsRoutes); // Issue #198
 
     // Transaction routes (mixed auth - some endpoints require auth, others don't)
     this.app.use('/api/transactions', transactionRoutes);
