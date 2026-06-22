@@ -178,14 +178,7 @@ class OrynBackendServer {
     // Global rate limit — IP-based cap for all API requests (Issue #198)
     this.app.use('/api/', globalLimiter);
 
-    // Stricter rate limiting for trading endpoints
-    const tradeLimiter = rateLimit({
-      windowMs: 1 * 60 * 1000, // 1 minute
-      max: 20, // 20 trades per minute
-      message: 'Trading rate limit exceeded, please slow down.',
-      standardHeaders: true,
-      legacyHeaders: false,
-    });
+    // Trade limiter — per-user key gives authenticated users isolated headroom (Issue #198)
     this.app.use('/api/trades', tradeLimiter);
 
     // Body parser middleware
