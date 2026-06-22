@@ -172,15 +172,8 @@ class OrynBackendServer {
     // Abuse detection (pattern analysis + IP blocking)
     this.app.use('/api/', detectAbuse);
 
-    // Rate limiting
-    const limiter = rateLimit({
-      windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-      max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
-      message: 'Too many requests from this IP, please try again later.',
-      standardHeaders: true,
-      legacyHeaders: false,
-    });
-    this.app.use('/api/', limiter);
+    // Global rate limit — IP-based cap for all API requests (Issue #198)
+    this.app.use('/api/', globalLimiter);
 
     // Stricter rate limiting for trading endpoints
     const tradeLimiter = rateLimit({
