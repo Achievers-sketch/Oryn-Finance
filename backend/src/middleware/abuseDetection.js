@@ -95,11 +95,22 @@ function detectAbuse(req, res, next) {
 }
 
 function getAbuseMetrics() {
+  const now = Date.now();
+  const currentlyBlockedList = [];
+  for (const [ip, until] of blockedIPs.entries()) {
+    if (now < until) {
+      currentlyBlockedList.push({
+        ip,
+        blockedUntil: new Date(until).toISOString(),
+        remainingSecs: Math.ceil((until - now) / 1000),
+      });
+    }
+  }
   return {
-    currentlyBlocked: 0,
-    blockedIPs: [],
+    currentlyBlocked: currentlyBlockedList.length,
+    blockedIPs: currentlyBlockedList,
     topSuspicious: [],
-    activeWindows: 0,
+    activeWindows: ipWindows.size,
   };
 }
 
