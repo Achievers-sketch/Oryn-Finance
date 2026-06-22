@@ -194,3 +194,45 @@ export default function PortfolioAnalytics({ walletAddress }: { walletAddress: s
           </ResponsiveContainer>
         </MagicCard>
       )}
+
+      {/* Allocation + bar chart row */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {allocation.length > 0 && (
+          <MagicCard className="p-6">
+            <h3 className="text-sm font-semibold mb-4">Position Allocation</h3>
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie
+                  data={allocation}
+                  dataKey="totalCost"
+                  nameKey="tokenType"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={70}
+                  label={({ tokenType, percentage }) => `${String(tokenType).toUpperCase()} ${percentage}%`}
+                >
+                  {allocation.map((_, i) => (
+                    <Cell key={i} fill={ALLOC_COLORS[i % ALLOC_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(v: number) => fmtUsd(v)} />
+              </PieChart>
+            </ResponsiveContainer>
+          </MagicCard>
+        )}
+
+        {series.length > 0 && (
+          <MagicCard className="p-6">
+            <h3 className="text-sm font-semibold mb-4">Trade Count by Period</h3>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={series} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="currentColor" opacity={0.05} />
+                <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                <Tooltip />
+                <Bar dataKey="tradeCount" name="Trades" fill="#6366f1" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </MagicCard>
+        )}
+      </div>
