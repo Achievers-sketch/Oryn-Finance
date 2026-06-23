@@ -94,4 +94,30 @@ function detectAbuse(req, res, next) {
   next();
 }
 
-module.exports = { detectAbuse };
+function getAbuseMetrics() {
+  const now = Date.now();
+  const currentlyBlockedList = [];
+  for (const [ip, until] of blockedIPs.entries()) {
+    if (now < until) {
+      currentlyBlockedList.push({
+        ip,
+        blockedUntil: new Date(until).toISOString(),
+        remainingSecs: Math.ceil((until - now) / 1000),
+      });
+    }
+  }
+  const suspicious = [];
+  for (const [ip, timestamps] of ipWindows.entries()) {
+    const count = timestamps.filter((t) => now - t < WINDOW_MS).length;
+    if (count >= SUSPICIOUS_THRESHOLD) suspicious.push({ ip, requestCount: count });
+  }
+  suspicious.sort((a, b) => b.requestCount - a.requestCount);
+  return {
+    currentlyBlocked: currentlyBlockedList.length,
+    blockedIPs: currentlyBlockedList,
+    topSuspicious: suspicious.slice(0, 10),
+    activeWindows: ipWindows.size,
+  };
+}
+
+module.exports = { detectAbuse, getAbuseMetrics };

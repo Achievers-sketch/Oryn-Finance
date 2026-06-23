@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser'); // Issue #22: parse httpOnly cookies
 const { createServer } = require('http');
 const { Server } = require('socket.io');
@@ -13,6 +12,7 @@ const logger = require('./src/config/logger');
 const { validateEnv } = require('./src/config/envValidator');
 const { errorHandler, notFound } = require('./src/middleware/errorHandler');
 const { detectAbuse } = require('./src/middleware/abuseDetection');
+const { globalLimiter, sensitiveLimiter, tradeLimiter, burstLimiter } = require('./src/middleware/rateLimiter'); // Issue #198
 
 // Import routes
 const authRoutes = require('./src/routes/auth');       // Issue #22: httpOnly cookie auth
@@ -53,7 +53,7 @@ const messagesRoutes = require('./src/routes/messages');
 const reportsRoutes = require('./src/routes/reports');
 const riskAssessmentRoutes = require('./src/routes/riskAssessment'); // Issue #187
 const auditRoutes = require('./src/routes/audit'); // Issue #194
-const portfolioAnalyticsRoutes = require('./src/routes/portfolioAnalytics'); // Issue #199
+const rateLimitMetricsRoutes = require('./src/routes/rateLimitMetrics'); // Issue #198
 
 
 // Import services
@@ -168,27 +168,16 @@ class OrynBackendServer {
       allowedHeaders: ['Content-Type', 'Authorization']
     }));
 
-    // Abuse detection (pattern analysis + IP blocking)
+    // Layer 1: abuse detection — blocks IPs exhibiting malicious request patterns
     this.app.use('/api/', detectAbuse);
 
-    // Rate limiting
-    const limiter = rateLimit({
-      windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-      max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
-      message: 'Too many requests from this IP, please try again later.',
-      standardHeaders: true,
-      legacyHeaders: false,
-    });
-    this.app.use('/api/', limiter);
+    // Layer 2: burst limiter — prevents sudden traffic spikes (10-second window, Issue #198)
+    this.app.use('/api/', burstLimiter);
 
-    // Stricter rate limiting for trading endpoints
-    const tradeLimiter = rateLimit({
-      windowMs: 1 * 60 * 1000, // 1 minute
-      max: 20, // 20 trades per minute
-      message: 'Trading rate limit exceeded, please slow down.',
-      standardHeaders: true,
-      legacyHeaders: false,
-    });
+    // Layer 3: global rate limit — sustained IP-based cap per 15-minute window (Issue #198)
+    this.app.use('/api/', globalLimiter);
+
+    // Trade limiter — per-user key gives authenticated users isolated headroom (Issue #198)
     this.app.use('/api/trades', tradeLimiter);
 
     // Body parser middleware
@@ -226,6 +215,9 @@ class OrynBackendServer {
   }
 
   setupRoutes() {
+    // Sensitive limiter — tighter window on auth endpoints to slow brute-force (Issue #198)
+    this.app.use('/api/auth', sensitiveLimiter);
+
     // Auth routes — refresh token, logout (Issue #22)
     this.app.use('/api/auth', authRoutes);
 
@@ -255,7 +247,7 @@ class OrynBackendServer {
     this.app.use('/api/market-alerts', marketAlertsRoutes);
     this.app.use('/api/risk-assessment', riskAssessmentRoutes); // Issue #187
     this.app.use('/api/audit', auditRoutes); // Issue #194 — centralized audit logging
-    this.app.use('/api/portfolio', portfolioAnalyticsRoutes); // Issue #199 — portfolio analytics — centralized audit logging
+    this.app.use('/api/admin/rate-limit-metrics', rateLimitMetricsRoutes); // Issue #198
 
     // Transaction routes (mixed auth - some endpoints require auth, others don't)
     this.app.use('/api/transactions', transactionRoutes);
